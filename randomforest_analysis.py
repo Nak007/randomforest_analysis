@@ -1073,7 +1073,7 @@ class tts_randomstate():
             data = zip((X_test, X_train), (y_test, y_train))
             
             # Train model. 
-            self.params.update({'class_weight': self.__weights__(y_train)})
+            # self.params.update({'class_weight': self.__weights__(y_train)})
             estimator = RandomForestClassifier(**self.params)
             estimator.fit(X_train, y_train)
             
