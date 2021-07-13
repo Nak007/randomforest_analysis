@@ -7,9 +7,11 @@ Available methods are the followings:
 [5] Calibrate_Proba
 [6] cal_score
 [7] Axes2grid
+[8] get_classweights
 
 Authors: Danusorn Sitdhirasdr <danusorn.si@gmail.com>
 versionadded:: 27-06-2021
+
 '''
 import numpy as np, pandas as pd
 import matplotlib.pyplot as plt
@@ -392,7 +394,11 @@ class FeatureImportance():
         tight_layout : bool, default=True
             If True, it adjusts the padding between and 
             around subplots i.e. plt.tight_layout().
-            
+        
+        Returns
+        -------
+        ax : Matplotlib axis object
+        
         '''
         # Get data from self.info (attribute)
         by = column if sort_by is None else sort_by
@@ -417,6 +423,7 @@ class FeatureImportance():
         ax.set_title(f'Feature Importance\n{self.title[column]}', 
                      fontsize=14, fontweight=600)
         if tight_layout: plt.tight_layout()
+        return ax
         
     def __annotMean__(self, ax, importances, amax):
         
@@ -836,6 +843,10 @@ class TreeInterpreter:
             Seed for random number generator to randomize samples
             to be plotted.
             
+        Returns
+        -------
+        ax : Matplotlib axis object
+            
         '''
         col_index = np.argmax(self.features==var)
         x = self.X[:, col_index].copy()
@@ -902,6 +913,7 @@ class TreeInterpreter:
         ax.legend(loc='best', 
                   prop=dict(weight="ultralight", size=11))  
         if tight_layout: plt.tight_layout()
+        return ax
     
     def __IQR__(self, a, whis):
         '''Interquatile range'''
@@ -1235,7 +1247,8 @@ class tts_randomstate():
                      fontweight='demibold', fontsize=14)
         ax.grid(False)
         if tight_layout: plt.tight_layout()
-
+        return ax
+   
 class Calibrate_Proba:
     
     '''
@@ -1757,3 +1770,55 @@ def cal_score(proba, pdo=20, odd=1., point=200., decimal=0,
     factor = pdo/np.log(2)
     offset = point - factor*np.log(odd)
     return np.round_(offset+factor*ln_odd, decimal)
+
+def get_classweights(start, stop, num=20, backward=0, forward=0, decimal=4):
+    
+    '''
+    Determine sequence of evenly spaced class weights 
+    over a specified interval.
+    
+    Parameters
+    ----------
+    start : 1D-array
+        The starting value of the sequence [1].
+    
+    stop : 1D-array
+        The end value of the sequence [1].
+    
+    num : int, default=20
+        Number of samples to generate. Must be 
+        non-negative [1].
+    
+    forward : int, default=0
+        Number of forward steps beyond the end value 
+        wrt. step return from np.linspace.
+    
+    backward : int, default=0
+        Number of backward steps beyond the starting 
+        value wrt. step return from np.linspace.
+        
+    decimal : int, default=4
+        Number of decimal places for class weights.
+    
+    References
+    ----------
+    ... [1] https://numpy.org/doc/stable/reference/
+            generated/numpy.linspace.html
+    ... [2] https://scikit-learn.org/stable/modules/
+            generated/sklearn.ensemble.
+            RandomForestClassifier.html
+           
+    Returns
+    -------
+    Weights : list of dicts
+        List of weights associated with classes in the 
+        form {class_label: weight}.
+    
+    '''
+    start, stop = np.array(start),np.array(stop)
+    steps = np.linspace(start, stop, num=num, retstep=True)[1]
+    args  = (start-backward*steps, stop+forward*steps, 
+             num+backward+forward)
+    Weights = np.round(np.linspace(*args), decimal)
+    Weights = [dict([wt for wt in enumerate(w)]) for w in Weights]
+    return Weights
