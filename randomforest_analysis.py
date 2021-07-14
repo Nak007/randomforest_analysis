@@ -38,7 +38,8 @@ __all__ = ["PlotGridSearch",
            "TreeInterpreter", 
            "tts_randomstate",
            "Calibrate_Proba",
-           "cal_score", "Axes2grid"]
+           "cal_score", "Axes2grid", 
+           "get_classweights"]
 
 def PlotGridSearch(gs, scoring=None, ax=None, 
                    colors=None, decimal=4):
