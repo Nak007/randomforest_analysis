@@ -1810,6 +1810,15 @@ def get_classweights(start, stop, num=20, backward=0, forward=0, decimal=4):
     Weights : list of dicts
         List of weights associated with classes in the 
         form {class_label: weight}.
+        
+    Examples
+    --------
+    >>> get_classweights([1.,1.], [0.5, 2.], num=5)
+    [{0: 1.000, 1: 1.000 },
+     {0: 0.875, 1: 1.250 },
+     {0: 0.750, 1: 1.500 },
+     {0: 0.625, 1: 1.750 },
+     {0: 0.500, 1: 2.000 }]
     
     '''
     start, stop = np.array(start),np.array(stop)
