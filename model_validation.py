@@ -12,6 +12,7 @@ Available methods are the followings:
 
 Authors: Danusorn Sitdhirasdr <danusorn.si@gmail.com>
 versionadded:: 05-10-2020
+
 '''
 import numpy as np
 import matplotlib.pyplot as plt
@@ -21,57 +22,62 @@ from sklearn.metrics import (confusion_matrix,
                              roc_curve, roc_auc_score,  
                              precision_recall_curve)
 
-__all__ = ['eval_classifier','cfm_plot','f1score_plot',
-           'gini_plot','dist_plot','ks_plot','gains_plot',
-           'lift_plot','create_cmap']
+__all__ = ['eval_classifier',
+           'cfm_plot',
+           'f1score_plot',
+           'gini_plot',
+           'dist_plot',
+           'ks_plot',
+           'gains_plot',
+           'lift_plot',
+           'create_cmap']
 
 def eval_classifier(y_true, y_proba, **params):
 
     '''
-    `eval_classifier` provides a quick access to 
-    all evaluation methods under `model_validation.py`.
-    Moreover, it also allows adjustment or modification
-    to be made to any particular plot.
+    `eval_classifier` provides a quick access to all evaluation 
+    methods under `model_validation.py`. Moreover, it also allows 
+    adjustment or modification to be made to any particular plot.
     
     Parameters
     ----------
-    y_true : array-like of shape (n_sample,)
-    \t Target array (binary).
+    y_true : array-like of shape (n_samples,)
+        Target array (binary).
 
     y_proba : array-like of shape (n_samples,)
-    \t Probability array.
+        Probability array.
     
     **params : dictionary of properties, optional
-    \t params are used to specify or override properties of 
+        params are used to specify or override properties of 
         
-        axes : `list` of `axes.Axes` objects, optional
-        \t List of `axes.Axes` objects.
+        axes : list of Matplotlib axis object, optional
+            List of `axes.Axes` objects.
+            
+        columns : int, default=3
+            The number of columns. This is relevant when `axes` is 
+            not provided.
         
-        columns : `int`, optional, default: 3
-        \t The number of columns. This is relevant when `axes`
-        \t is not provided.
+        plots : list of int, optional
+            `plots` is a list that contains type of plots to be 
+            displayed on `plt.figure`. If `plots` is not provided, 
+            all plots are selected.
         
-        plots : `list` of `int`, optional
-        \t `plots` is a list that contains type of plots to 
-        \t be displayed on `plt.figure`. If `plots` is not 
-        \t provided, all plots are selected.
-        
-        \t The method indices are as follows:
-        \t 0:'Confusion matrix', 
-        \t 1:'F1-Score', 
-        \t 2:'Gini index', 
-        \t 3:'Distribution of binary classes', 
-        \t 4:'Kolmogorov–Smirnov test', 
-        \t 5:'Gains',
-        \t 6:'Lift'
+            The method indices are as follows:
+            0 : 'Confusion matrix', 
+            1 : 'F1-Score', 
+            2 : 'Gini index', 
+            3 : 'Distribution of binary classes', 
+            4 : 'Kolmogorov–Smirnov test', 
+            5 : 'Gains',
+            6 : 'Lift'
 
         ax_dict : `list` of `dict`, optional
-        \t List of dictionaries that is used to specify or 
-        \t override properties of `plots`. The items must be
-        \t arranged in the same order as `plots`. `{}` is 
-        \t compulsory when adjustment of properties is not
-        \t required. If `ax_dict` is not defined, `ax_dict` 
-        \t will default to list of `{}`.
+            List of dictionaries that is used to specify or override 
+            properties of `plots`. The items must be arranged in the 
+            same order as `plots`. `{}` is compulsory when adjustment 
+            of properties is not required. If `ax_dict` is not defined, 
+            `ax_dict` will default to list of `{}`.
+            
     '''
     # ======================================================
     columns = update_(params, 'columns', 3)
@@ -109,8 +115,8 @@ def eval_classifier(y_true, y_proba, **params):
     else: have_axes = True
     
     # Plot `ax` according to `axes`.
-    for (n,ax,params) in zip(plots,axes,ax_dict):
-        plts[n](y_true, y_proba, **{**params,**{'ax':ax}})
+    for (n, ax, params) in zip(plots, axes, ax_dict):
+        plts[n](y_true, y_proba, **{**params, **{'ax' : ax}})
     
     if have_axes==False:
         fig.tight_layout()
@@ -132,33 +138,121 @@ def cfm_plot(y_true, y_proba, **params):
     
     References
     ----------
-    [1] Confusion Matrix, https://en.wikipedia.org/wiki/
-        Confusion_matrix
-    [2] https://www.geeksforgeeks.org/confusion-matrix-
-        machine-learning/
+    .. [1] Confusion Matrix, https://endef eval_classifier(y_true, y_proba, **params):
+
+    '''
+    `eval_classifier` provides a quick access to all evaluation 
+    methods under `model_validation.py`. Moreover, it also allows 
+    adjustment or modification to be made to any particular plot.
+    
+    Parameters
+    ----------
+    y_true : array-like of shape (n_samples,)
+        Target array (binary).
+
+    y_proba : array-like of shape (n_samples,)
+        Probability array.
+    
+    **params : dictionary of properties, optional
+        params are used to specify or override properties of 
+        
+        axes : list of Matplotlib axis object, optional
+            List of `axes.Axes` objects.
+            
+        columns : int, default=3
+            The number of columns. This is relevant when `axes` is 
+            not provided.
+        
+        plots : list of int, optional
+            `plots` is a list that contains type of plots to be 
+            displayed on `plt.figure`. If `plots` is not provided, 
+            all plots are selected.
+        
+            The method indices are as follows:
+            0 : 'Confusion matrix', 
+            1 : 'F1-Score', 
+            2 : 'Gini index', 
+            3 : 'Distribution of binary classes', 
+            4 : 'Kolmogorov–Smirnov test', 
+            5 : 'Gains',
+            6 : 'Lift'
+
+        ax_dict : `list` of `dict`, optional
+            List of dictionaries that is used to specify or override 
+            properties of `plots`. The items must be arranged in the 
+            same order as `plots`. `{}` is compulsory when adjustment 
+            of properties is not required. If `ax_dict` is not defined, 
+            `ax_dict` will default to list of `{}`.
+            
+    '''
+    # ======================================================
+    columns = update_(params, 'columns', 3)
+    # ------------------------------------------------------
+    default = [0,1,2,3,4,5,6,6,6]
+    plots = update_(params, 'plots', default)
+    # ------------------------------------------------------
+    default = [dict()]*(len(plots)-2) + [{'plot':'decile'}, 
+                                         {'plot':'rate'}]
+    ax_dict = update_(params, 'ax_dict', default)
+    # ------------------------------------------------------
+    axes = update_(params, 'axes', None)
+    # ------------------------------------------------------
+    plts = [cfm_plot, f1score_plot, gini_plot, dist_plot, 
+            ks_plot, gains_plot, lift_plot]
+    # ======================================================
+
+    # Check length of `ax_dict`.
+    n_plot = len(plots)
+    if len(ax_dict)!=n_plot:
+        raise ValueError("Length of `ax_dict` must be {:,}. "
+                         "Got {:,}".format(len(plots),
+                                           len(ax_dict)))
+    
+    # Create `ax` if `axes` is not provided.
+    if axes==None:
+        have_axes = False
+        # Determine number of rows and columns, and `loc` for 
+        # each axis and `shape` for `plt.subplot2grid`.
+        c, r = min(n_plot,columns), int(np.ceil(n_plot/columns))
+        fig = plt.figure(figsize=(6*c,4*r))
+        locs = [(m,n) for m in range(r) for n in range(c)]
+        axes = [plt.subplot2grid((r,c),loc) for loc in 
+                np.array(locs)[:n_plot]]
+    else: have_axes = True
+    
+    # Plot `ax` according to `axes`.
+    for (n, ax, params) in zip(plots, axes, ax_dict):
+        plts[n](y_true, y_proba, **{**params, **{'ax' : ax}})
+    
+    if have_axes==False:
+        fig.tight_layout()
+        plt.show().wikipedia.org/wiki/
+           Confusion_matrix
+    .. [2] https://www.geeksforgeeks.org/confusion-matrix-
+           machine-learning/
 
     Parameters
     ----------
-    y_true : array-like of shape (n_sample,)
-    \t Target array (binary).
+    y_true : array-like of shape (n_samples,)
+        Target array (binary).
 
     y_proba : array-like of shape (n_samples,)
-    \t Probability array.
+        Probability array.
 
     **params : dictionary of properties, optional
-    \t params are used to specify or override properties of 
+        params are used to specify or override properties of 
         
-        ax : `axes.Axes` object
-        \t `Axes` object from `plt.subplots`. If `None`,
-        \t `ax` is automatically created.
+        ax : Matplotlib axis object, default=None
+            Predefined Matplotlib axis. If None, ax is created with 
+            default figsize.
         
-        threshold : `float`, optional, default: 0.5
-        \t Threshold of probabilities.
+        threshold : float, default=0.5
+            Threshold of probabilities.
         
         mat_dict : dictionary
-        \t A dictionary to override the default `ax.matshow` 
-        \t properties. If `mat_dict` is `None`, the defaults 
-        \t are determined.
+            A dictionary to override the default `ax.matshow` 
+            properties. If None, it uses default settings. 
+            
     '''
     # ======================================================
     default = {'cmap':create_cmap('#d1ccc0','#FF0000'), 
@@ -205,19 +299,15 @@ def cfm_plot(y_true, y_proba, **params):
     ax.set_ylabel(str_format2(threshold))
     ax.set_xlabel('Actual')
     ax.set_facecolor('white')
-    if fig!=None:
-        fig.tight_layout()
-        plt.show()
+    return ax
 
 def f1score_plot(y_true, y_proba, **params):
     
     '''
-    ** F1-Score **
-    
     The F-score, also called the F1-score, is a measure of 
     a model’s accuracy on a dataset. It is used to evaluate 
     binary classification systems, which classify examples 
-    into ‘positive’ or ‘negative’. The F-score is a way of 
+    into "positive" or "negative". The F-score is a way of 
     combining the precision and recall of the model, and it 
     is defined as the harmonic mean of the model’s precision 
     and recall. 
@@ -226,38 +316,37 @@ def f1score_plot(y_true, y_proba, **params):
     
     References
     ----------
-    [1] https://deepai.org/machine-learning-glossary-and-
-        terms/f-score
+    .. [1] https://deepai.org/machine-learning-glossary-and-
+           terms/f-score
 
     Parameters
     ----------
-    y_true : array-like of shape (n_sample,)
-    \t Target array (binary).
+    y_true : array-like of shape (n_samples,)
+        Target array (binary).
 
     y_proba : array-like of shape (n_samples,)
-    \t Probability array.
+        Probability array.
     
     **params : dictionary of properties, optional
-    \t params are used to specify or override properties of 
-        
-        ax : `axes.Axes` object
-        \t `Axes` object from `plt.subplots`. If `None`,
-        \t `ax` is automatically created.
+        params are used to specify or override properties of 
+          
+        ax : Matplotlib axis object, default=None
+            Predefined Matplotlib axis. If None, ax is created with 
+            default figsize.
 
         plot_dict : dictionary
-        \t A dictionary to override the default `ax.plot` 
-        \t properties. If `plot_dict` is `None`, the  
-        \t defaults are determined.
+            A dictionary to override the default `ax.plot` 
+            properties. If None, it uses default settings.
         
         fill_dict : dictionary
-        \t A dictionary to override the default 
-        \t `ax.fill_between` properties of "GINI". If 
-        \t `fill_dict` is `None`, the defaults are 
-        \t determined.
+            A dictionary to override the default `ax.fill_between` 
+            properties of "GINI". If None, it uses default 
+            settings. 
+            
     '''
     # ======================================================
-    default = {'color':'#eb3b5a', 'linewidth':1.5, 
-               'label':'F1-Score', 'linestyle':'-'}
+    default = {'color' : '#eb3b5a' , 'linewidth' : 1.5, 
+               'label' : 'F1-Score', 'linestyle' : '-'}
     plot_dict = update_(params, 'plot_dict', default, True)
     # ------------------------------------------------------
     default = {'alpha':0.2, 'color':'#d1ccc0'}
@@ -270,11 +359,11 @@ def f1score_plot(y_true, y_proba, **params):
     # Order of outputs from `confusion_matrix` are as follow; 
     # tn, fp, fn, and tp.
     cutoffs = np.unique(y_proba)
-    cfm = np.array([confusion_matrix(y_true,(y_proba>=c)).ravel() 
+    cfm = np.array([confusion_matrix(y_true, (y_proba>=c)).ravel() 
                     for c in cutoffs])
     p = cfm[:,-1]/cfm[:,[1,3]].sum(axis=1)
     r = cfm[:,-1]/cfm[:,[2,3]].sum(axis=1)
-    f1_score = 2*(p*r)/(p+r)
+    f1_score = 2*(p*r) / (p+r)
 
     # Plot F1-Score curve.
     label = plot_dict['label'] + ': max={:,.3g}'.format(max(f1_score))
@@ -284,13 +373,15 @@ def f1score_plot(y_true, y_proba, **params):
     # Maximum F1-Score line.
     proba = cutoffs[np.argmax(f1_score)]
     label = 'Optimal point: P={:,.3f}'.format
-    kwargs = {'color':'#3d3d3d', 'linewidth':1, 
-              'linestyle':'--', 'label':label(proba)}
+    kwargs= {'color'     : '#3d3d3d', 
+             'linewidth' : 1, 
+             'linestyle' : '--', 
+             'label'     : label(proba)}
     ax.axvline(proba, **kwargs)
     
     # Change format of ticklabels.
-    ax.set_xticklabels(['{:,.0%}'.format(n) 
-                        for n in ax.get_xticks()])
+    t = ticker.PercentFormatter(xmax=1)
+    ax.xaxis.set_major_formatter(t)
 
     # Set other attributes.
     ax.set_xlabel('Probability (P)')
@@ -300,75 +391,70 @@ def f1score_plot(y_true, y_proba, **params):
     ax.set_facecolor('white')
     ax.legend(loc='best', framealpha=0, edgecolor='none')
     ax.grid(False)
-    if fig!=None:
-        fig.tight_layout()
-        plt.show()
+    return ax
 
 def gini_plot(y_true, y_proba, **params):
 
     '''
     ** GINI index **
     
-    The ROC curve is the display of `sensitivity` and 
-    `1-specificity` for different cut-off values for 
-    probability (If the probability of positive response 
-    is above the cut-off, we predict a positive outcome, 
-    if not we are predicting a negative one). Each cut-off 
-    value defines one point on `ROC` curve, ranging cut-off 
-    from 0 to 1 will draw the whole `ROC` curve. 
+    The ROC curve is the display of sensitivity and 
+    1 - specificity for different cut-off values for probability 
+    (If the probability of positive response is above the 
+    cut-off, we predict a positive outcome, if not we are 
+    predicting a negative one). Each cut-off value defines one 
+    point on `ROC` curve, ranging cut-off from 0 to 1 will draw 
+    the whole `ROC` curve. 
 
-    The `Gini` coefficient is the area or `ROC` curve above 
-    the random classifier (diagonal line) that indicates 
-    the model’s discriminatory power, namely, the 
-    effectiveness of the model in differentiating between 
-    target, and non-target.
+    The `Gini` coefficient is the area or `ROC` curve above the 
+    random classifier (diagonal line) that indicates the model’s 
+    discriminatory power, namely, the effectiveness of the model 
+    in differentiating between target, and non-target.
     
     versionadded:: 05-10-2020
     
     References
     ----------
-    [1] ROC curve, https://en.wikipedia.org/wiki/
-        Receiver_operating_characteristic
-    [2] https://towardsdatascience.com/using-the-gini-
-        coefficient-to-evaluate-the-performance-of-
-        credit-score-models-59fe13ef420
+    .. [1] ROC curve, https://en.wikipedia.org/wiki/Receiver_
+           operating_characteristic
+    .. [2] https://towardsdatascience.com/using-the-gini-
+           coefficient-to-evaluate-the-performance-of-credit-
+           score-models-59fe13ef420
         
     Parameters
     ----------
-    y_true : array-like of shape (n_sample,)
-    \t Target array (binary).
+    y_true : array-like of shape (n_samples,)
+        Target array (binary).
 
     y_proba : array-like of shape (n_samples,)
-    \t Probability array.
+        Probability array.
     
     **params : dictionary of properties, optional
-    \t `params` are used to specify or override properties of 
+        `params` are used to specify or override properties of 
         
-        ax : `axes.Axes` object
-        \t `Axes` object from `plt.subplots`. If `None`,
-        \t `ax` is automatically created.
-        
+        ax : Matplotlib axis object, default=None
+            Predefined Matplotlib axis. If None, ax is created with 
+            default figsize.
+
         plot_dict : dictionary
-        \t A dictionary to override the default `ax.plot` 
-        \t properties of "ROC". If `plot_dict` is `None`, 
-        \t the defaults are determined.
+            A dictionary to override the default `ax.plot` 
+            properties of "ROC". If None, it uses default settings.
         
         fill_dict : dictionary
-        \t A dictionary to override the default 
-        \t `ax.fill_between` properties of "GINI". If 
-        \t `fill_dict` is `None`, the defaults are 
-        \t determined.
+            A dictionary to override the default `ax.fill_between` 
+            properties of "GINI". If None, it uses default settings.
+            
     '''
     # ======================================================
     # ROC curve.
     fpr, tpr, _ = roc_curve(y_true, y_proba)
     # ------------------------------------------------------
-    default = {'color':'red', 'linewidth':1.5, 
-               'label':'ROC' , 'linestyle':'-'}
+    default = {'color' : 'red' , 'linewidth': 1.5, 
+               'label' : 'ROC' , 'linestyle': '-'}
     plot_dict = update_(params, 'plot_dict', default, True)
     # ------------------------------------------------------
-    default = {'alpha':0.2, 'color':'#d1ccc0', 
-               'label':'Gini', 'y1':tpr, 'y2':fpr}
+    default = {'alpha' : 0.2   , 'color':'#d1ccc0', 
+               'label' : 'Gini', 'y1' : tpr, 'y2': fpr}
     fill_dict = update_(params, 'fill_dict', default, True)
     # ------------------------------------------------------
     fig, ax = _ax_check(params)
@@ -380,21 +466,23 @@ def gini_plot(y_true, y_proba, **params):
     
     # Plot ROC curve.
     label = plot_dict['label'] + ' ({:,.2%})'.format(auc)
-    ax.plot(fpr, tpr, **{**plot_dict,**{'label':label}})
+    ax.plot(fpr, tpr, **{**plot_dict, **{'label':label}})
     
     # Plot GINI curve.
     label = fill_dict['label'] + ' ({:,.2%})'.format(gini)
-    ax.fill_between(fpr, **{**fill_dict,**{'label':label}})
+    ax.fill_between(fpr, **{**fill_dict, **{'label':label}})
     
     # Random classifier line.
-    kwargs = {'color':'#3d3d3d', 'linewidth':1, 
-              'label':'Random classifier', 'linestyle':'--'}
+    kwargs = {'color'    : '#3d3d3d', 
+              'linewidth': 1, 
+              'linestyle': '--',
+              'label'    : 'Random classifier'}
     ax.plot([0,1], [0,1], **kwargs)
     
     # Change format of ticklabels.
-    f = '{:,.0%}'.format
-    ax.set_xticklabels([f(n) for n in ax.get_xticks()])
-    ax.set_yticklabels([f(n) for n in ax.get_yticks()])
+    t = ticker.PercentFormatter(xmax=1)
+    ax.xaxis.set_major_formatter(t)
+    ax.yaxis.set_major_formatter(t)
     
     # Set other attributes.
     ax.set_title('Receiver Operating Characteristic curve')
@@ -403,59 +491,55 @@ def gini_plot(y_true, y_proba, **params):
     ax.set_facecolor('white') 
     ax.legend(loc='best', framealpha=0, edgecolor='none')
     ax.grid(False)
-    if fig!=None:
-        fig.tight_layout()
-        plt.show()
+    return ax
 
 def dist_plot(y_true, y_proba, **params):
 
     '''
-    Distribution plot is intended to illustrate the 
-    separation of two distributions from binary 
-    classification, according to obtained probabilities.
+    Distribution plot is intended to illustrate the separation 
+    of two distributions from binary classification, according 
+    to obtained probabilities.
     
     versionadded:: 05-10-2020
 
     Parameters
     ----------
-    y_true : array-like of shape (n_sample,)
-    \t Target array (binary).
+    y_true : array-like of shape (n_samples,)
+        Target array (binary).
 
     y_proba : array-like of shape (n_samples,)
-    \t Probability array.
+        Probability array.
 
     **params : dictionary of properties, optional
-    \t `params` are used to specify or override properties of 
+        `params` are used to specify or override properties of 
         
-        ax : `axes.Axes` object
-        \t `Axes` object from `plt.subplots`. If `None`,
-        \t `ax` is automatically created.
+        ax : Matplotlib axis object, default=None
+            Predefined Matplotlib axis. If None, ax is created with 
+            default figsize.
         
-        bins : `int`, optional, default: 20
-        \t Number of bins.
+        bins : int, default=20
+            Number of bins.
 
-        n_tick : `int`, optional, default: 5
-        \t Number of ticks to be displayed on x-axis.
+        n_tick : int, default: 5
+            Number of ticks to be displayed on x-axis.
     
         colors : `list` of color-hex codes or (r,g,b)
-        \t List must contain at the very least, 'n' of 
-        \t color-hex codes or (r,g,b) that matches number
-        \t of labels in 'y'. If `None`, the matplotlib  
-        \t color maps, is default to `matplotlib_cmap`.
+            List must contain at the very least, 'n' of color-hex 
+            codes or (r,g,b) that matches number of labels in 'y'. 
+            If None, it defaults to `matplotlib_cmap`.
 
-        labels : `list` of `str`
-        \t `list` of labels whose items must be arranged
-        \t in ascending order. If `None`, algorithm will
-        \t automatically assign labels.
+        labels : list of str
+            List of labels whose items must be arranged in ascending 
+            order. If None, algorithm will automatically assign 
+            labels.
         
         bar_dict : dictionary
-        \t A dictionary to override the default `ax.bar` 
-        \t properties. If `bar_dict` is `None`, the 
-        \t defaults are determined.
+            A dictionary to override the default `ax.bar` properties. 
+            If None, it uses default settings
         
-        float_format : `format()` method
-        \t String formatting method e.g. 
-        \t {'float_format':'{:.2%}'.format}.
+        float_format : function
+            String formatting function method e.g. '{:.2%}'.format.
+            
     '''  
     # ======================================================
     bins = update_(params,'bins', 20)
@@ -489,13 +573,13 @@ def dist_plot(y_true, y_proba, **params):
     # Plot horizontal bar.
     for n in [0,1]:
         N = (y_true==n).sum()
-        kwargs = {'color':colors[n], 
-                  'label':labels[n](N, N/y_true.size)}
+        kwargs = {'color' : colors[n], 
+                  'label' : labels[n](N, N/y_true.size)}
         ax.bar(np.arange(bins.size-1), dist[n], 
                **{**bar_dict,**kwargs})
 
     # Set tick positions.
-    step = (bins.size-2)/(n_tick-1)
+    step = (bins.size-2) / (n_tick-1)
     t = np.arange(0,bins.size-2,step)
     ax.set_xticks(np.concatenate((t,t[-1:]+step)))
     
@@ -514,64 +598,58 @@ def dist_plot(y_true, y_proba, **params):
     ax.set_facecolor('white')
     ax.legend(loc='best', framealpha=0, edgecolor='none')
     ax.grid(False)
-    if fig!=None:
-        fig.tight_layout()
-        plt.show()
+    return ax
 
 def ks_plot(y_true, y_proba, **params):
 
     '''
     ** Kolmogorov–Smirnov **
     
-    In statistics, the Kolmogorov–Smirnov test is a 
-    nonparametric test of the equality of continuous, 
-    one-dimensional probability distributions that can 
-    be used to compare a sample with a reference 
-    probability distribution (one-sample KS test), or 
-    to compare two samples.
+    In statistics, the Kolmogorov–Smirnov test is a nonparametric 
+    test of the equality of continuous, one-dimensional probability 
+    distributions that can be used to compare a sample with a 
+    reference probability distribution (one-sample KS test), or to 
+    compare two samples.
     
     versionadded:: 05-10-2020
 
     References
     ----------
-    [1] https://en.wikipedia.org/wiki/Kolmogorov–
-        Smirnov_test
+    .. [1] https://en.wikipedia.org/wiki/Kolmogorov–Smirnov_test
 
     Parameters
     ----------
-    y_true : array-like of shape (n_sample,)
-    \t Target array (binary).
+    y_true : array-like of shape (n_samples,)
+        Target array (binary).
 
     y_proba : array-like of shape (n_samples,)
-    \t Probability array.
+        Probability array.
     
     **params : dictionary of properties, optional
-    \t `params` are used to specify or override properties of 
+        `params` are used to specify or override properties of 
         
-        ax : `axes.Axes` object
-        \t `Axes` object from `plt.subplots`. If `None`,
-        \t `ax` is automatically created.
+        ax : Matplotlib axis object, default=None
+            Predefined Matplotlib axis. If None, ax is created with 
+            default figsize.
         
-        colors : `list` of color-hex codes or (r,g,b)
-        \t List must contain at the very least, 'n' of 
-        \t color-hex codes or (r,g,b) that matches number
-        \t of labels in 'y'. If `None`, the matplotlib  
-        \t color maps, is default to `matplotlib_cmap`.
+        colors : list of color-hex codes or (r,g,b)
+            List must contain at the very least, 'n' of color-hex 
+            codes or (r,g,b) that matches number of labels in 'y'. 
+            If None, it defaults to `matplotlib_cmap`.
 
-        labels : `list` of `str`
-        \t `list` of labels whose items must be arranged
-        \t in ascending order. If `None`, algorithm will
-        \t automatically assign labels.
+        labels : list of str
+            List of labels whose items must be arranged in ascending 
+            order. If `None`, algorithm will automatically assign 
+            labels.
         
         plot_dict : dictionary
-        \t A dictionary to override the default `ax.plot` 
-        \t properties. If `plot_dict` is `None`, the 
-        \t defaults are determined.
+            A dictionary to override the default `ax.plot` properties. 
+            If None, it uses default settings.
         
         fill_dict : dictionary
-        \t A dictionary to override the default 
-        \t `ax.fill_between` properties. If `fill_dict` is 
-        \t `None`, the defaults are determined.
+            A dictionary to override the default `ax.fill_between` 
+            properties. If None, it uses default settings.
+            
     '''
     # ======================================================
     colors = update_(params,'colors',['#7f8fa6','red'])
@@ -580,9 +658,9 @@ def ks_plot(y_true, y_proba, **params):
     labels = [(s + ' ({:,}, {:.0%})').format for s in labels]
     # ------------------------------------------------------
     plot_dict = update_(params, 'plot_dict', 
-                        {'linewidth':2}, True)
+                        {'linewidth': 2}, True)
     # ------------------------------------------------------
-    default = {'alpha':0.2, 'color':'#d1ccc0'}
+    default = {'alpha' : 0.2, 'color' : '#d1ccc0'}
     fill_dict = update_(params, 'fill_dict', default, True)
     # ------------------------------------------------------
     fig, ax = _ax_check(params)
@@ -594,32 +672,33 @@ def ks_plot(y_true, y_proba, **params):
     bins = np.unique([0] + bins.tolist())
     
     # Cumulative (%) distribution.
-    dist = [np.histogram(y_proba[y_true==n],bins)[0] for n in [0,1]]
+    dist = [np.histogram(y_proba[y_true==n], bins)[0] for n in [0,1]]
     cumd = [np.array([0]+list(np.cumsum(d)))/sum(d) for d in dist]
 
     # Determine `ks_cutoff` from each threshold.
     ks = abs(cumd[0]-cumd[1])
-    c = np.argmax(ks)
+    c  = np.argmax(ks)
     cutoff, ks = bins[c], ks[c]
 
     # Plot cumulative distribution.
     for n in [0,1]:
         N = (y_true==n).sum()
-        kwargs = {'color':colors[n], 
-                  'label':labels[n](N, N/y_true.size)}
+        kwargs = {'color': colors[n], 
+                  'label': labels[n](N, N/y_true.size)}
         ax.plot(bins, cumd[n], **{**plot_dict,**kwargs})
     ax.fill_between(bins, cumd[0], cumd[1],**fill_dict)
     
     # Optimal `ks` line with `cutoff`.
-    label = 'KS = {:.2%}, P = {:.2%}'.format
-    kwargs = {'color':'k', 'label':label(ks,cutoff),
-              'linewidth':1}
+    label  = 'KS = {:.2%}, P = {:.2%}'.format
+    kwargs = {'color'    : 'k',
+              'label'    : label(ks, cutoff),
+              'linewidth': 1}
     ax.plot([cutoff]*2, [cumd[0][c],cumd[1][c]], **kwargs)
     
     # Change format of ticklabels.
-    f = '{:,.0%}'.format
-    ax.set_xticklabels([f(n) for n in ax.get_xticks()])
-    ax.set_yticklabels([f(n) for n in ax.get_yticks()])
+    t = ticker.PercentFormatter(xmax=1)
+    ax.xaxis.set_major_formatter(t)
+    ax.yaxis.set_major_formatter(t)
     
     # Set other attributes.
     ax.set_title('Kolmogorov–Smirnov')
@@ -628,64 +707,62 @@ def ks_plot(y_true, y_proba, **params):
     ax.set_facecolor('white')
     ax.legend(loc='best', framealpha=0, edgecolor='none')
     ax.grid(False)
-    if fig!=None:
-        fig.tight_layout()
-        plt.show()
+    return ax
 
 def gains_plot(y_true, y_proba, **params):
 
     '''
-    Gain chart is used to evaluate performance of 
-    classification model. It measures how much better 
-    one can expect to do with the predictive model 
-    comparing without a model. It plots the cumulative 
-    percentage of positive samples (x-axis) against the 
+    ** Gain chart **
+    
+    Gain chart is used to evaluate performance of classification 
+    model. It measures how much better one can expect to do with 
+    the predictive model comparing without a model. It plots the 
+    cumulative percentage of positive samples (x-axis) against the 
     cumulative percentage of targeted samples (y-axis).
     
     versionadded:: 05-10-2020
     
     References
     ----------
-    [1] https://www.listendata.com/2014/08/excel-
-        template-gain-and-lift-charts.html
-    [2] https://community.tibco.com/wiki/gains-vs-roc-
-        curves-do-you-understand-difference
+    .. [1] https://www.listendata.com/2014/08/excel-template-gain
+           -and-lift-charts.html
+    .. [2] https://community.tibco.com/wiki/gains-vs-roc-curves-do
+           -you-understand-difference
         
     Parameters
     ----------
-    y_true : array-like of shape (n_sample,)
-    \t Target array (binary).
+    y_true : array-like of shape (n_samples,)
+        Target array (binary).
 
     y_proba : array-like of shape (n_samples,)
-    \t Probability array.
+        Probability array.
     
     **params : dictionary of properties, optional
-    \t `params` are used to specify or override properties of 
+        `params` are used to specify or override properties of 
         
-        ax : `axes.Axes` object
-        \t `Axes` object from `plt.subplots`. If `None`,
-        \t `ax` is automatically created.
+        ax : Matplotlib axis object, default=None
+            Predefined Matplotlib axis. If None, ax is created with 
+            default figsize.
         
-        step : `int`, optional, default: 5
-        \t Incremental change of percentile.
+        step : int, default=5
+            Incremental change of percentile.
 
-        decimal : `int`, optional, default: 4
-        \t Decimal places that applied to all percentile 
-        \t values before collapsing bins.
+        decimal : int, default=4
+            Decimal places that applied to all percentile values 
+            before collapsing bins.
     
         plot_dict : dictionary
-        \t A dictionary to override the default `ax.plot` 
-        \t properties. If `plot_dict` is `None`, the 
-        \t defaults are determined.
+            A dictionary to override the default `ax.plot` properties. 
+            If None, it uses default settings.
         
         fill_dict : dictionary
-        \t A dictionary to override the default 
-        \t `ax.fill_between` properties. If `fill_dict` is 
-        \t `None`, the defaults are determined.
+            A dictionary to override the default `ax.fill_between` 
+            properties. If None, it uses default settings.
+            
     '''
     # ======================================================
-    default = {'color':'red', 'linewidth':1.5, 
-               'label':'Model' , 'linestyle':'-'}
+    default = {'color':'red'   , 'linewidth' : 1.5, 
+               'label':'Model' , 'linestyle' : '-'}
     plot_dict = update_(params, 'plot_dict', default, True)
     # ------------------------------------------------------
     default = {'alpha':0.2, 'color':'#d1ccc0'}
@@ -703,20 +780,21 @@ def gains_plot(y_true, y_proba, **params):
     # Gain plot.
     x = (1 - bins[::-1]); x = np.where(x>=0,x,0)
     N = y_true.sum()
-    p =', Target = {:,.0f} ({:,.0%})'.format(N, N/y_true.size)
+    p = ', Target = {:,.0f} ({:,.0%})'.format(N, N/y_true.size)
     label = {'label':plot_dict['label'] + p}
     ax.plot(x, cum_event, **{**plot_dict,**label})
     ax.fill_between(x, y1=cum_event, y2=x ,**fill_dict)
     
     # Random classifier (diagonal line).
-    kwargs = {'color':'#3d3d3d', 'linestyle':'--', 
-              'label':'Random classifier'}
+    kwargs = {'color'    : '#3d3d3d', 
+              'linestyle': '--', 
+              'label'    : 'Random classifier'}
     ax.plot([0,1],[0,1], **kwargs)
     
     # Change format of ticklabels.
-    f = '{:,.0%}'.format
-    ax.set_xticklabels([f(n) for n in ax.get_xticks()])
-    ax.set_yticklabels([f(n) for n in ax.get_yticks()])
+    t = ticker.PercentFormatter(xmax=1)
+    ax.xaxis.set_major_formatter(t)
+    ax.yaxis.set_major_formatter(t)
     
     # Set other attributes.
     ax.set_title('Gains Chart')
@@ -725,81 +803,84 @@ def gains_plot(y_true, y_proba, **params):
     ax.set_facecolor('white')
     ax.legend(loc='best', framealpha=0, edgecolor='none')
     ax.grid(False)
-    if fig!=None:
-        fig.tight_layout()
-        plt.show()
+    return ax
 
 def lift_plot(y_true, y_proba, **params):
 
     ''' 
-    Lift measures how much better one can expect 
-    to do with the predictive model comparing 
-    without a model (randomness). Lift is the ratio 
-    of targets to samples. Both numerator and
-    denominator can be either cumulative or decile 
-    percentage. Moreover, probability must be ordered 
-    in descending manner before grouping into deciles.
+    ** Lift **
+    
+    Lift measures how much better one can expect to do with the 
+    predictive model comparing without a model (randomness). Lift is 
+    the ratio of targets to samples. Both numerator and denominator 
+    can be either cumulative or decile percentage. Moreover, 
+    probability must be ordered in descending manner before grouping 
+    into deciles.
     
     versionadded:: 05-10-2020
 
     Parameters
     ----------
-    y_true : array-like of shape (n_sample,)
-    \t Target array (binary).
+    y_true : array-like of shape (n_samples,)
+        Target array (binary).
 
     y_proba : array-like of shape (n_samples,)
-    \t Probability array.
+        Probability array.
     
     **params : dictionary of properties, optional
-    \t params are used to specify or override properties of 
+        params are used to specify or override properties of 
         
-        ax : `axes.Axes` object
-        \t `Axes` object from `plt.subplots`. If `None`,
-        \t `ax` is automatically created.
+        ax : Matplotlib axis object, default=None
+            Predefined Matplotlib axis. If None, ax is created with 
+            default figsize.
         
-        plot : {'cumu', 'decile', 'rate'}, default: 'cumu'
-        \t If the option chosen is 'cumu', the cumulative 
-        \t lift is selected, while 'decile' is a decile lift,
-        \t and 'rate' is the target rate.
+        plot : {'cumu', 'decile', 'rate'}, default='cumu'
+            If the option chosen is 'cumu', the cumulative lift is 
+            selected, while 'decile' is a decile lift, and 'rate' is 
+            the target rate.
         
         bound : (`float`, `float`), optional
-        \t The lower and upper range of the bins. If not 
-        \t provided, range is simply [0,100]. Values outside 
-        \t the range are ignored. The first element of the 
-        \t range must be less than or equal to the second. 
+            The lower and upper range of the bins. If not provided, 
+            range is simply [0,100]. Values outside the range are 
+            ignored. The first element of the range must be less than 
+            or equal to the second. 
         
-        step : `int`, optional, default: 10
-        \t Incremental change of percentile and must be 
-        \t between 0 and 100.
+        step : int, default=10
+            Incremental change of percentile and must be between 0 and 
+            100.
 
-        decimal : `int`, optional, default: 4
-        \t Decimal places that applied to all percentile 
-        \t values before collapsing bins.
+        decimal : int, default=4
+            Decimal places that applied to all percentile values before 
+            collapsing bins.
     
         plot_dict : dictionary
-        \t A dictionary to override the default `ax.plot` 
-        \t properties. If `plot_dict` is `None`, the 
-        \t defaults are determined.
+            A dictionary to override the default `ax.plot` properties. 
+            If None, it uses default settings.
         
         fill_dict : dictionary
-        \t A dictionary to override the default 
-        \t `ax.fill_between` properties. If `fill_dict` is 
-        \t `None`, the defaults are determined.
+            A dictionary to override the default `ax.fill_between` 
+            properties. If None, it uses default settings.
         
-        font_dict : `dict` object
-        \t A dictionary to override the default `ax.annotate` 
-        \t properties.
+        font_dict : dictionary
+            A dictionary to override the default `ax.annotate` 
+            properties.
+            
+        anno_format : function, default=None
+            String formatting function method e.g. '{:.2%}'.format.
+            If None, it uses default settings.
+        
     '''
     # ======================================================
-    attrs = {'decile': ('dec_lift', -0.1, [1], '{:,.3g}', 
+    str_fmt = update_(params,'anno_format','{:,.2f}'.format)
+    attrs = {'decile': ('dec_lift', -0.1, [1], str_fmt, 
                         'Decile Lift'), 
-             'rate'  : ('p_target', -0.1, [0], '{:,.3g}',
+             'rate'  : ('p_target', -0.1, [0], str_fmt,
                         'Target Ratio (by decile)'), 
-             'cumu'  : ('cum_lift',  0.9, [1], '{:,.2f}', 
+             'cumu'  : ('cum_lift',  0.9, [1], str_fmt, 
                         'Cumulative Lift')}
     attrs = attrs[update_(params,'plot', 'cumu')]
     # ------------------------------------------------------
-    bound = update_(params,'bound', [0,100])
+    bound = update_(params, 'bound', [0,100])
     # ------------------------------------------------------
     step = update_(params,'step', 10)
     # ------------------------------------------------------
@@ -844,12 +925,13 @@ def lift_plot(y_true, y_proba, **params):
     ax.plot(x, lift, **{**plot_dict,**label})
     ax.fill_between(x, y1=lift, y2=attrs[2]*len(lift), **fill_dict)
     for n,s in enumerate(lift): 
-        ax.annotate(attrs[3].format(s), (n,s), **font_dict)
+        ax.annotate(attrs[3](s), (n,s), **font_dict)
     
     # Random classifier (baseline).
     if attrs[0]!='p_target': 
-        ax.axhline(1, **{'color':'#3d3d3d', 'linestyle':'--',  
-                         'label':'Random classifier'})
+        ax.axhline(1, **{'color'    : '#3d3d3d', 
+                         'linestyle': '--',  
+                         'label'    : 'Random classifier'})
 
     # Change format of ticklabels.
     ax.set_xticks(x)
@@ -867,9 +949,7 @@ def lift_plot(y_true, y_proba, **params):
     ax.set_facecolor('white')
     ax.grid(False)
     ax.legend(loc='best', framealpha=0, edgecolor='none')
-    if fig!=None:
-        fig.tight_layout()
-        plt.show()
+    return ax
 
 def update_(params, key, default, update=False):
     ''' 
@@ -898,20 +978,20 @@ def _ax_check(params):
 def create_cmap(c1=None, c2=None):
     
     '''
-    Creating `matplotlib.colors.Colormap` (Colormaps)
-    with two colors.
+    Creating `matplotlib.colors.Colormap` (Colormaps) with 
+    two colors.
     
     .. versionadded:: 26-08-2020
     
     Parameters
     ----------
-    c1 : `hex code` or (r,g,b), optional, default: None
-    \t The beginning color code. If `None`, `c1` is
-    \t default to (23,10,8).
+    c1 : `hex code` or (r,g,b), default=None
+        The beginning color code. If None, `c1` is default 
+        to (23,10,8).
     
-    c2 : `hex code` or (r,g,b), optional, default: None
-    \t The ending color code. If `None`, `c2` is 
-    \t default to (255,255,255).
+    c2 : `hex code` or (r,g,b), default=None
+        The ending color code. If `None`, `c2` is default to 
+        (255,255,255).
     
     Returns
     -------
@@ -938,34 +1018,36 @@ def create_cmap(c1=None, c2=None):
     return ListedColormap(colors)
 
 def _lift_table_(y_true, y_proba, step=10, decimal=4):
+    
     '''
-    Function determines `i` percentile based on defined 
-    `step`(incremental change in percentile). Then, it 
-    collaspes bins that have the same percentile values 
-    into one. Then, other parameters such as cumulative 
-    percentage, lift, or target rate are calculated, 
-    accordingly.
+    
+    Function determines `i` percentile based on defined `step`
+    (incremental change in percentile). Then, it collaspes bins 
+    that have the same percentile values into one. Then, other 
+    parameters such as cumulative percentage, lift, or target 
+    rate are calculated, accordingly.
     
     versionadded:: 05-10-2020
     
     Parameters
     ----------
-    y_true : array-like of shape (n_sample,)
-    \t Target array (binary).
+    y_true : array-like of shape (n_samples,)
+        Target array (binary).
 
     y_proba : array-like of shape (n_samples,)
-    \t Probability array.
+        Probability array.
     
-    step : `int`, optional, default: 5
-    \t Incremental change of percentile.
+    step : int, default=5
+        Incremental change of percentile.
     
     decimal : `int`, optional, default: 4
-    \t Decimal places that applied to all percentile 
-    \t values before collapsing bins.
+        Decimal places that applied to all percentile values 
+        before collapsing bins.
     
     Returns
     -------
-    `dictionary` object.
+    dictionary
+    
     '''
     # Compute sequence of percentiles.
     q = np.arange(100-step,-step,-step); q[-1] = 0
@@ -981,7 +1063,7 @@ def _lift_table_(y_true, y_proba, step=10, decimal=4):
     cum_p_target = cum_n_target/y_true.sum()
     cum_p_sample = cum_n_sample/y_true.size
     cum_lift = cum_p_target/np.where(cum_p_sample==0,
-                                     1,cum_p_sample) 
+                                     1, cum_p_sample) 
     
     # Number of samples in each bin.
     N = lambda a : (a[0:1],np.diff(a))
@@ -992,7 +1074,13 @@ def _lift_table_(y_true, y_proba, step=10, decimal=4):
     p_target = n_target/np.where(n_sample==0,1,n_sample)
     dec_lift = p_target*(y_true.size/y_true.sum())
     
-    return {'cum_n_target':cum_n_target,'cum_n_sample':cum_n_sample,
-            'cum_p_target':cum_p_target,'cum_p_sample':cum_p_sample,
-            'n_target':n_target,'n_sample':cum_p_sample,'bins':bins, 
-            'p_target':p_target,'cum_lift':cum_lift,'dec_lift':dec_lift}
+    return {'cum_n_target' : cum_n_target,
+            'cum_n_sample' : cum_n_sample,
+            'cum_p_target' : cum_p_target,
+            'cum_p_sample' : cum_p_sample,
+            'n_target' : n_target,
+            'n_sample' : cum_p_sample,
+            'bins'     : bins, 
+            'p_target' : p_target,
+            'cum_lift' : cum_lift,
+            'dec_lift' : dec_lift}
