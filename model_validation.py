@@ -79,6 +79,7 @@ def eval_classifier(y_true, y_proba, **params):
             `ax_dict` will default to list of `{}`.
             
     '''
+    
     # ======================================================
     columns = update_(params, 'columns', 3)
     # ------------------------------------------------------
@@ -139,95 +140,6 @@ def cfm_plot(y_true, y_proba, **params):
     References
     ----------
     .. [1] Confusion Matrix, https://endef eval_classifier(y_true, y_proba, **params):
-
-    '''
-    `eval_classifier` provides a quick access to all evaluation 
-    methods under `model_validation.py`. Moreover, it also allows 
-    adjustment or modification to be made to any particular plot.
-    
-    Parameters
-    ----------
-    y_true : array-like of shape (n_samples,)
-        Target array (binary).
-
-    y_proba : array-like of shape (n_samples,)
-        Probability array.
-    
-    **params : dictionary of properties, optional
-        params are used to specify or override properties of 
-        
-        axes : list of Matplotlib axis object, optional
-            List of `axes.Axes` objects.
-            
-        columns : int, default=3
-            The number of columns. This is relevant when `axes` is 
-            not provided.
-        
-        plots : list of int, optional
-            `plots` is a list that contains type of plots to be 
-            displayed on `plt.figure`. If `plots` is not provided, 
-            all plots are selected.
-        
-            The method indices are as follows:
-            0 : 'Confusion matrix', 
-            1 : 'F1-Score', 
-            2 : 'Gini index', 
-            3 : 'Distribution of binary classes', 
-            4 : 'Kolmogorov–Smirnov test', 
-            5 : 'Gains',
-            6 : 'Lift'
-
-        ax_dict : `list` of `dict`, optional
-            List of dictionaries that is used to specify or override 
-            properties of `plots`. The items must be arranged in the 
-            same order as `plots`. `{}` is compulsory when adjustment 
-            of properties is not required. If `ax_dict` is not defined, 
-            `ax_dict` will default to list of `{}`.
-            
-    '''
-    # ======================================================
-    columns = update_(params, 'columns', 3)
-    # ------------------------------------------------------
-    default = [0,1,2,3,4,5,6,6,6]
-    plots = update_(params, 'plots', default)
-    # ------------------------------------------------------
-    default = [dict()]*(len(plots)-2) + [{'plot':'decile'}, 
-                                         {'plot':'rate'}]
-    ax_dict = update_(params, 'ax_dict', default)
-    # ------------------------------------------------------
-    axes = update_(params, 'axes', None)
-    # ------------------------------------------------------
-    plts = [cfm_plot, f1score_plot, gini_plot, dist_plot, 
-            ks_plot, gains_plot, lift_plot]
-    # ======================================================
-
-    # Check length of `ax_dict`.
-    n_plot = len(plots)
-    if len(ax_dict)!=n_plot:
-        raise ValueError("Length of `ax_dict` must be {:,}. "
-                         "Got {:,}".format(len(plots),
-                                           len(ax_dict)))
-    
-    # Create `ax` if `axes` is not provided.
-    if axes==None:
-        have_axes = False
-        # Determine number of rows and columns, and `loc` for 
-        # each axis and `shape` for `plt.subplot2grid`.
-        c, r = min(n_plot,columns), int(np.ceil(n_plot/columns))
-        fig = plt.figure(figsize=(6*c,4*r))
-        locs = [(m,n) for m in range(r) for n in range(c)]
-        axes = [plt.subplot2grid((r,c),loc) for loc in 
-                np.array(locs)[:n_plot]]
-    else: have_axes = True
-    
-    # Plot `ax` according to `axes`.
-    for (n, ax, params) in zip(plots, axes, ax_dict):
-        plts[n](y_true, y_proba, **{**params, **{'ax' : ax}})
-    
-    if have_axes==False:
-        fig.tight_layout()
-        plt.show().wikipedia.org/wiki/
-           Confusion_matrix
     .. [2] https://www.geeksforgeeks.org/confusion-matrix-
            machine-learning/
 
