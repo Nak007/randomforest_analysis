@@ -4,10 +4,10 @@ Available methods are the followings:
 [2] FeatureImportance
 [3] TreeInterpreter
 [4] tts_randomstate
-[5] Calibrate_Proba
-[6] cal_score
-[7] Axes2grid
-[8] get_classweights
+[5] cal_score
+[6] Axes2grid
+[7] get_classweights
+[8] CalibatorEvaluation
 
 Authors: Danusorn Sitdhirasdr <danusorn.si@gmail.com>
 versionadded:: 27-06-2021
@@ -24,7 +24,8 @@ from sklearn.metrics import (roc_auc_score,
                              confusion_matrix)
 from sklearn.base import clone
 from sklearn.linear_model import(HuberRegressor, 
-                                 LinearRegression) 
+                                 LinearRegression,
+                                 LogisticRegression) 
 from inspect import signature
 import collections
 from itertools import product
@@ -37,8 +38,11 @@ __all__ = ["PlotGridSearch",
            "drop_column_importance", 
            "TreeInterpreter", 
            "tts_randomstate",
-           "Calibrate_Proba",
-           "cal_score", "Axes2grid"]
+           "cal_score", 
+           "Axes2grid",
+           "get_classweights",
+           "CalibatorEvaluation",
+           "Calibrator_base"]
 
 def PlotGridSearch(gs, scoring=None, ax=None, 
                    colors=None, decimal=4):
@@ -1246,54 +1250,96 @@ class tts_randomstate():
         if tight_layout: plt.tight_layout()
         return ax
 
-class Calibrate_Proba:
+class CalibatorEvaluation():
     
     '''
-    Calibrate estimated probailities against target, in order 
-    to obtain more accurate probabilities. This method requires
-    grouping and validation of bin edges before carrying out 
-    calibration.
+    Evaluate calibrated probailities against target, in order to
+    obtain more accurate probabilities. This method requires 
+    grouping and validation of bin edges.
     
     Parameters
     ----------
     bins : sequence of int, default=range(2,10)
-        Sequence of monotonically increasing int. Each of
-        items is used as starting number of bins.
+        Sequence of monotonically increasing int. Each of items 
+        is used as starting number of bins.
         
     equal_width : bool, default=True
-        If True, it uses equal-width binning, otherwise 
-        equal-sample binning is used instead.
+        If True, it uses equal-width binning, otherwise equal-
+        sample binning is used instead.
+
+    monotonic : bool, default=True
+        If True, bins will be collspsed until number of targets 
+        is either monotonically increasing or decreasing pattern.
+        
+    Attributes
+    ----------
+    result : dict
+        Dictionary of output from <Calibration_base>, where key
+        is number of iterations.
+
+    rmse : list of float 
+        Root Mean Squared Error as per iteration.
+
+    gini : list of float
+        Gini Impurity as per iteration
         
     '''
-    def __init__(self, bins=range(2,10), equal_width=True):
+    def __init__(self, bins=range(2,10), equal_width=True, 
+                 monotonic=True):
         
         self.bins = bins
         self.equal_width = equal_width
+        self.monotonic = monotonic
         
-    def fit(self, y_true, y_proba):
+    def fit(self, y_train, y_test):
         
         '''
-        Fit model
+        Fit model.
         
         Parameters
         ----------
-        y_true : array-like of shape (n_samples,)
-            True labels or binary label indicators. 
+        y_train : tuple(y_true, y_proba) 
+            Tuple of true labels of train dataset and corresponding
+            calibrated probilities from estimator. 
 
-        y_proba : array-like of shape (n_samples,)
-            Target probability.
+        y_test : tuple(y_true, y_proba) 
+            Tuple of true labels of test dataset and corresponding 
+            calibrated probilities from estimator. 
         
         Attributes
         ----------
         result : dict
-            Dictionary of output from <Calibrate>, where key
-            is number of bins.
+            Dictionary of output from `Calibrator_base`, where key
+            is number of iterations.
             
+        rmse : list of float 
+            Root Mean Squared Error as per iteration.
+            
+        gini : list of float
+            Gini Impurity as per iteration
+   
         '''
+        # Initialize parameters
         self.result = dict()
-        for bins in self.bins:
-            args = (y_true, y_proba, self.equal_width, bins)
-            self.result[bins] = Calibrate(*args)
+        kwds = {"equal_width": self.equal_width}
+        self.rmse = {"train":[], "test":[]}
+        self.gini = {"train":[], "test":[]}
+        Result = collections.namedtuple("Calibr", ["train",'test'])
+        
+        for (n, bins) in enumerate(self.bins):
+            
+            kwds.update({"bins" : bins, 
+                         "monotonic" : self.monotonic})
+            res_train = Calibrator_base(*y_train, **kwds)
+            kwds.update({"bins" : res_train.bin_edges, 
+                         "monotonic" : False})
+            res_test  = Calibrator_base(*y_test, **kwds)
+            
+            self.result[n] = Result(*(res_train, res_test))
+            for m in ["rmse", "gini"]:
+                getattr(self, m)["train"] += [getattr(res_train,m)]
+                getattr(self, m)["test"]  += [getattr(res_test, m)]
+            
         return self
     
     def __ax__(self, ax, figsize):
@@ -1306,24 +1352,133 @@ class Calibrate_Proba:
         
         '''Private: get default line color'''
         if colors is not None: return colors
-        else: return [ax._get_lines.get_next_color() 
-                      for _ in range(n)]
-   
-    def plotting_calib(self, bin_num, ax=None, 
-                       colors=None, tight_layout=True):
+        else: return [ax._get_lines.get_next_color() for _ in range(n)]
+
+    def plotting_hist(self, n_iter=0, use_train=True, ax=None, 
+                      colors=None, tight_layout=True, decimal=2, 
+                      actual_kwds=None, estimate_kwds=None):
         
         '''
-        Plot calibarated probabilities along with actual 
-        percentage of targets.
+        Histogram between nth iteration and actual values.
 
         Parameters
         ----------
-        bin_num : int
-            Bin number.
+        n_iter : int, default=0
+            nth iteration.
+            
+        use_train : bool, default=True
+            If True, it uses result from train dataset, otherwise
+            test dataset.
 
         ax : Matplotlib axis object, default=None
-            Predefined Matplotlib axis. If None, `ax` is 
-            created with default figsize.
+            Predefined Matplotlib axis. If None, `ax` is created 
+            with default figsize.
+
+        colors : list of color-hex, default=None
+            Number of color-hex must be greater than 1. If None, 
+            it uses default colors from Matplotlib.
+
+        tight_layout : bool, default=True
+            If True, it adjusts the padding between and around 
+            subplots i.e. plt.tight_layout().
+            
+        decimal : int, default=2
+            Decimal places for annotation of % targets.
+            
+        actual_kwds : keywords, default=None
+            Keyword arguments of targets to be passed to `ax.bar`.
+         
+        estimate_kwds : keywords, default=None
+            Keyword arguments of estimates to be passed to `ax.bar`.
+
+        Returns
+        -------
+        ax : Matplotlib axis object
+
+        '''
+        # Extract data from `Result.info`
+        if use_train: result = self.result[n_iter].train
+        else: result = self.result[n_iter].test
+            
+        data ="Train" if use_train else "Test"
+        info = pd.DataFrame(result.info).copy()
+        p_targets = info["p_targets"].values
+        p_samples = info["p_samples"].values
+        mean_proba= info["mean_proba"].values
+        x = np.arange(len(p_targets))
+        
+        # Create matplotlib.axes if ax is None.
+        width = np.fmax(len(p_targets)*0.8, 6)
+        ax = self.__ax__(ax, (width, 4.3))
+
+        # Get default line color.
+        colors = self.__colors__(ax, colors, 2)
+        
+        num_format = ("{:,." + str(decimal) + "f}").format
+        anno_kwds  = dict(xytext =(0,4), textcoords='offset points', 
+                          va='bottom', ha='center', fontsize=10, 
+                          fontweight='demibold')
+     
+        # Vertical bar (actual).
+        pct  = np.sum(p_samples * p_targets) 
+        kwds = dict(width=0.4, ec='k', alpha=0.9, color=colors[0], 
+                    label='Actual ({:.0%})'.format(pct))
+        ax.bar(x-0.25, p_targets, **({**kwds, **actual_kwds} if 
+                                     actual_kwds is not None else kwds))
+        
+        # Annotation (actual).
+        kwds = {**anno_kwds, **dict(color=colors[0])}
+        for xy in zip(x-0.25, p_targets): 
+            ax.annotate(num_format(min(xy[1],1)), xy, **kwds)
+            
+        # Vertical bar (estimate).
+        pct  = np.sum(p_samples * mean_proba)   
+        kwds = dict(width=0.4, ec='k', alpha=0.9, color=colors[1], 
+                    label='Estimate ({:.0%})'.format(pct))    
+        ax.bar(x+0.25, mean_proba, **({**kwds, **estimate_kwds} if 
+                                      estimate_kwds is not None else kwds))
+        
+        # Annotation (actual).
+        kwds = {**anno_kwds, **dict(color=colors[1])}
+        for xy in zip(x+0.25, mean_proba): 
+            ax.annotate(num_format(min(xy[1],1)), xy, **kwds)
+            
+        for spine in ["top", "left", "right"]:
+            ax.spines[spine].set_visible(False)
+
+        # Set title and labels.
+        ax.set_xticks(x)
+        ax.set_xticklabels(f"Group {n}" for n in x+1)
+        ax.set_xlim(-0.5, len(p_targets)-0.5)
+        ax.set_yticks([])
+        ax.set_yticklabels('')
+        ax.set_ylim(0, max(max(p_targets)/0.9, max(mean_proba))/0.9)
+        ax.set_title(f'Actual vs Estimate ({data})', 
+                     fontweight='demibold', fontsize=12)
+        ax.legend(loc=2, fontsize=12)
+        if tight_layout: plt.tight_layout()
+        return ax
+    
+    def plotting_reliability(self, n_iter=0, use_train=True, 
+                             ax=None, colors=None, 
+                             tight_layout=True):
+        
+        '''
+        Plot calibarated probabilities both train and test along 
+        with actual percentage of targets (reliability curve).
+
+        Parameters
+        ----------
+        n_iter : int, default=0
+            nth iteration.
+        
+        use_train : bool, default=True
+            If True, it uses result from train dataset, otherwise
+            test dataset.
+
+        ax : Matplotlib axis object, default=None
+            Predefined Matplotlib axis. If None, `ax` is created 
+            with default figsize.
 
         colors : list of color-hex, default=None
             Number of color-hex must be greater than 2. If None, 
@@ -1339,235 +1494,212 @@ class Calibrate_Proba:
 
         '''
         # Extract data from `Result.info`
-        result = self.result[bin_num]
+        if use_train: result = self.result[n_iter].train
+        else: result = self.result[n_iter].test
+            
+        data ="Train" if use_train else "Test"
         info = pd.DataFrame(result.info).copy()
-        p_actual  = info["p_targets"].values
+        p_targets = info["p_targets"].values
         mean_pred = info["mean_proba"].values
         stdv_pred = info["std_proba"].values
-        calb_pred = info["calib_proba"].values
 
         # Create matplotlib.axes if ax is None.   
         ax = self.__ax__(ax, (6, 4.3))
 
         # Get default line color.
-        colors = self.__colors__(ax, colors, 3)
-
-        # Estimate line.
-        ax.plot(p_actual, mean_pred, lw=1, marker='s', color=colors[0],
-                fillstyle='none', ms=5, label='Estimate (mse={:.2%})'
-                .format(result.pre_mse))
-        lower, upper = mean_pred-stdv_pred, mean_pred+stdv_pred
-        ax.fill_between(p_actual, lower, upper, 
-                        alpha=0.1, color=colors[0])
-
-        # Calibrated line.
-        ax.plot(p_actual, calb_pred, ls='--', lw=1, marker='s', 
-                ms=5, color=colors[1],  fillstyle='none', 
-                label='Calibrated (mse={:.2%})'.format(result.post_mse))
-
+        colors = self.__colors__(ax, colors, 2)
+        
         # Diagonal line.
-        ax.plot(p_actual, p_actual, lw=2, ls="-.", 
-                color=colors[2], label='Actual Target')
+        ax.plot(p_targets, p_targets, lw=2, ls="-.", 
+                color=colors[0], label='Actual Target')
+        
+        # Calibrated line.
+        kwds = {"linewidth" : 1, 
+                "marker"    : "s", 
+                "color"     : colors[1], 
+                "fillstyle" : "none", 
+                "markersize": 5, 
+                "label"     : "Calibrated"}
+        ax.plot(p_targets, mean_pred, **kwds)
+        lower, upper = mean_pred-stdv_pred, mean_pred+stdv_pred
+        ax.fill_between(p_targets, lower, upper, alpha=0.1, 
+                        color=colors[1], label="Standard Deviation")
 
         # Set title and labels.
         ax.set_xlabel('Actual Target (%)', fontsize=10)
         ax.set_ylabel('Average probability\nof estimates (%)', fontsize=10)
-        ax.set_title(', '.join((f'binning: {result.binning}',
-                           r'$\beta$: {:,.2f}'.format(result.beta),
-                           'bins: {:,.0f}'.format(result.bins))), 
-                     fontweight='demibold', fontsize=12)
-        ax.legend(loc=0, fontsize=11)
+        title = ', '.join((f'binning: {result.binning}',
+                           "bins: {:,.0f}".format(result.bins), f"({data})"))
+        ax.set_title(title, fontweight='demibold', fontsize=12)
+        ax.legend(loc=0, fontsize=12)
+        
+        error = "RMSE={:.2f}, Gini={:.2f}"
+        bottom, top = ax.get_ylim()
+        left, right = ax.get_xlim()
+        ax.annotate(error.format(result.rmse, result.gini), 
+                    (right, bottom), ha="right", va="bottom", 
+                    xytext =(-5,5), textcoords='offset points', 
+                    fontsize=12)
         if tight_layout: plt.tight_layout()
         return ax
-
-    def plotting_error(self, ax=None, colors=None, 
-                       tight_layout=True, decimal=4):
+    
+    def plotting_metric(self, metric="gini", ax=None, 
+                       colors=None, tight_layout=True):
         
         '''
-        Plot Mean Squared Error of Pre and Post calibrations.
-        
+        Plot evaluation metric.
+
         Parameters
         ----------
+        metric: {"rmse", "gini"}, default="gini"
+            Evaluation metric.
+        
         ax : Matplotlib axis object, default=None
-            Predefined Matplotlib axis. If None, `ax` is 
-            created with default figsize.
+            Predefined Matplotlib axis. If None, `ax` is created 
+            with default figsize.
 
         colors : list of color-hex, default=None
-            Number of color-hex must be greater than 1. If None, 
+            Number of color-hex must be greater than 2. If None, 
             it uses default colors from Matplotlib.
 
         tight_layout : bool, default=True
             If True, it adjusts the padding between and around 
             subplots i.e. plt.tight_layout().
-        
-        decimal : int, default=4
-            Decimal places for annotation of best value(s).
-      
-        Returns
-        -------
-        ax : Matplotlib axis object
-        
-        '''
-        # Create matplotlib.axes if ax is None. 
-        width = np.fmax(len(self.bins)*0.3,6)
-        ax = self.__ax__(ax, (width, 4.3))
-        x = range(len(self.bins))
-        num_format = ("{:,." + str(decimal) + "f}").format
-
-        # Get default line color.
-        colors = self.__colors__(ax, colors, 2)
-        
-        # Keyword arguments
-        plot_kwds = {"pre_mse" : dict(lw=1, ls='--', alpha=0.8, 
-                                      color=colors[0],label="MSE (pre)"), 
-                     "post_mse": dict(lw=2, ls='-', color=colors[1],
-                                      label="MSE (post)")}
-        best_lines = []
-        
-        for n,field in enumerate(["pre_mse","post_mse"]):
-            
-            values = [getattr(self.result[key], field) 
-                      for key in self.result.keys()]
-            ax.plot(x, values, **plot_kwds[field])
-            
-            # Determine the best score
-            best_score = values[np.argmin(values)]
-            best_rank  = x[np.argmin(values)]
-
-            # Annotate the best score.
-            ax.scatter(best_rank, best_score, color=colors[n], 
-                       marker='o', s=100, lw=2, facecolor='none')
-            ax.annotate(num_format(best_score), (best_rank, best_score),
-                        textcoords='offset points', xytext=(10,10), 
-                        va='center', ha='left', fontsize=12, 
-                        color=colors[n], fontweight='demibold', 
-                        bbox=dict(boxstyle='square', fc='white', 
-                                  alpha=0.7, pad=0.2, lw=0))
-        
-            # Positional and keyword arguments for `best_line`.
-            best_lines.append((((best_rank,)*2, [0, best_score]), 
-                               dict(ls='-.', lw=2, color=colors[n])))
-    
-        # Fix y-axis.
-        ax.set_ylim(*ax.get_ylim())
-        
-        # Plot a dotted vertical line at the best score.
-        for args, kwargs in best_lines: 
-            ax.plot(*args, **kwargs)
-    
-        # Set title and labels.
-        ax.set_xticks(x)
-        ax.set_xticklabels(self.bins)
-        ax.set_xlim(-0.2, len(self.bins)-0.8)
-        ax.set_xlabel('Parameter: bins', fontsize=10)
-        ax.set_ylabel('Mean Squared Error (MSE)', fontsize=10)
-        ax.set_title('Pre and Post calibration', 
-                     fontweight='demibold', fontsize=12)
-        ax.legend(loc=0)
-        if tight_layout: plt.tight_layout()
-        return ax
-
-    def plotting_hist(self, bin_num, ax=None, colors=None, 
-                      tight_layout=True, decimal=4, 
-                      actual_kwds=None, estimate_kwds=None):
-        
-        '''
-        Histogram between n-bin calibration and actual values.
-
-        Parameters
-        ----------
-        bin_num : int
-            Bin number.
-
-        ax : Matplotlib axis object, default=None
-            Predefined Matplotlib axis. If None, `ax` is 
-            created with default figsize.
-
-        colors : list of color-hex, default=None
-            Number of color-hex must be greater than 1. If None, 
-            it uses default colors from Matplotlib.
-
-        tight_layout : bool, default=True
-            If True, it adjusts the padding between and around 
-            subplots i.e. plt.tight_layout().
-            
-        decimal : int, default=4
-            Decimal places for annotation of best value(s).
-            
-        actual_kwds : keywords, default=None
-            Keyword arguments of actual target to be passed to 
-            "ax.bar".
-         
-        estimate_kwds : keywords, default=None
-            Keyword arguments of estimates to be passed to 
-            "ax.bar".
 
         Returns
         -------
         ax : Matplotlib axis object
 
         '''
-        # Extract data from `Result.info`
-        result = self.result[bin_num]
-        info = pd.DataFrame(result.info).copy()
-        p_targets = info["p_targets"].values
-        p_samples = info["p_samples"].values
-        calb_pred = info["calib_proba"].values
-        x = np.arange(len(p_targets))
-        
-        # Create matplotlib.axes if ax is None.
-        width = np.fmax(len(p_targets)*0.8,6)
-        ax = self.__ax__(ax, (width, 4.3))
+        # Create matplotlib.axes if ax is None.   
+        ax = self.__ax__(ax, (6, 4.3))
 
         # Get default line color.
         colors = self.__colors__(ax, colors, 2)
         
-        num_format = ("{:,." + str(decimal) + "f}").format
-        anno_kwds = dict(xytext =(0,4), textcoords='offset points', 
-                         va='bottom', ha='center', fontsize=10, 
-                         fontweight='demibold')
+        train = getattr(self, metric)['train']
+        test  = getattr(self, metric)['test']
      
-        # Vertical bar (actual).
-        kwds = dict(width=0.4, ec='k', alpha=0.9, 
-                    color=colors[0], label='Actual ({:.0%})'
-                    .format(np.sum(p_samples*p_targets)))
-        ax.bar(x-0.25, p_targets, **({**kwds, **actual_kwds} if 
-                                     actual_kwds is not None else kwds))
+        x  = np.arange(len(train))
+        ax.plot(x, train, lw=2, color=colors[0], label="Train")
+        ax.plot(x, test , lw=2, color=colors[1], label="Test", ls="--")
         
-        # Annotation (actual).
-        kwds = {**anno_kwds, **dict(color=colors[0])}
-        for xy in zip(x-0.25, p_targets): 
-            ax.annotate(num_format(min(xy[1],1)), xy, **kwds)
-            
-        # Vertical bar (estimate).
-        wt_p = np.sum(p_samples*calb_pred)   
-        kwds = dict(width=0.4, ec='k', alpha=0.9, 
-                    color=colors[1], label='Estimate ({:.0%})'
-                    .format(np.sum(p_samples*calb_pred)))    
-        ax.bar(x+0.25, calb_pred, **({**kwds, **estimate_kwds} if 
-                                     estimate_kwds is not None else kwds))
+        y_label = ("Gini Impurity" if metric=="gini" 
+                   else "Root Mean Square Error")
+        ax.set_ylabel(y_label, fontsize=10)
+        ax.set_xlabel(r"$n^{th}$ iteration", fontsize=10)
         
-        # Annotation (actual).
-        kwds = {**anno_kwds, **dict(color=colors[1])}
-        for xy in zip(x+0.25, calb_pred): 
-            ax.annotate(num_format(min(xy[1],1)), xy, **kwds)
-            
-        for spine in ["top", "left", "right"]:
-            ax.spines[spine].set_visible(False)
-
-        # Set title and labels.
         ax.set_xticks(x)
-        ax.set_xticklabels(f"Group {n}" for n in x+1)
-        ax.set_xlim(-0.5, len(p_targets)-0.5)
-        ax.set_yticks([])
-        ax.set_yticklabels('')
-        ax.set_ylim(0, max(max(p_targets), max(calb_pred))/0.8)
-        ax.set_title('Actual vs Estimate', 
+        ax.set_xlim(min(x)-0.3, max(x)+0.3)
+        ax.legend(loc="best", fontsize=12)
+        ax.set_title("Calibration of probabilities", 
                      fontweight='demibold', fontsize=12)
-        ax.legend(loc=2)
         if tight_layout: plt.tight_layout()
         return ax
+
+def Calibrator_base(y_true, y_proba, equal_width=True, 
+                    bins=10, monotonic=True):
     
+    '''
+    Evaluate the performace of probabilities whether it follows 
+    actual target percentage. 
+    
+    Parameters
+    ----------
+    y_true : array-like of shape (n_samples,)
+        True labels or binary label indicators. 
+
+    y_proba : array-like of shape (n_samples,)
+        Target probability.
+        
+    equal_width : bool, default=True
+        If True, it uses equal-width binning, otherwise equal-sample 
+        binning is used instead. This is relevant when `bins` is int.
+        
+    bins : int or sequence of scalars or str, default=10
+        If int, it defines the number of bins that algorithm starts 
+        off with. If bins is a sequence, it defines a monotonically 
+        increasing array of bin edges, including the rightmost edge 
+        (similar to numpy.histogram). If bins is a string, it defines 
+        the method used to calculate the optimal bin width, as defined 
+        by `numpy.histogram_bin_edges`.
+        
+    monotonic : bool, default=True
+        If True, bins will be collspsed until number of targets is
+        either monotonically increasing or decreasing pattern.
+        
+    Returns
+    -------
+    Result : collections.namedtuple
+        A namedtuple class with following fields:
+        - bins     : Number of bins
+        - binning  : Method of binning
+        - bin_edges: Monotonic bin edges 
+        - rmse     : Root Mean Squared Error
+        - gini     : Gini Impurity
+        - info     : Evaluation results (pd.DataFrame)
+
+    '''
+    # Select binning methods.
+    if isinstance(bins, int):
+        binning = "equal-width" if equal_width else "equal-sample"
+        if equal_width: bin_edges = equalbins(y_proba, bins)
+        else: bin_edges = equalsamp(y_proba, bins)
+    elif isinstance(bins, str):
+        bin_edges, binning = auto_bin(y_proba, bins=bins), bins
+    else: bin_edges, binning = bins, "pre-determined"
+
+    # Monotonise `bin_edges`.
+    if monotonic:
+        args = (y_true, y_proba, bin_edges)
+        bin_edges = monotonize(*args)
+    
+    # Initialize parameters
+    indices = np.digitize(y_proba, bin_edges)
+    default = np.full(len(bin_edges)-1, np.nan)
+    data = {"r_min"     : bin_edges[:-1], 
+            "r_max"     : bin_edges[1 :],
+            "p_samples" : default.copy(), 
+            "min_proba" : default.copy(), 
+            "max_proba" : default.copy(), 
+            "mean_proba": default.copy(), 
+            "std_proba" : default.copy(), 
+            "p_targets" : default.copy()}
+    
+    # Evaluation table.
+    for n in range(1, len(bin_edges)):
+        proba = y_proba[indices==n]
+        data["p_samples"][n-1] = len(proba)/len(y_true)
+        data["min_proba"][n-1] = np.min(proba)
+        data["max_proba"][n-1] = np.max(proba)
+        data["mean_proba"][n-1]= np.mean(proba)
+        data["std_proba"][n-1] = np.std(proba)
+        data["p_targets"][n-1] = np.mean(y_true[indices==n])
+
+    # Calculate errors
+    gini = (1-(pow(data["p_targets"],2) + pow(1-data["p_targets"],2))) 
+    gini = (gini * data["p_samples"]).sum()
+    err  = data["mean_proba"] - data["p_targets"]
+    rmse = np.sqrt(np.mean(err**2))
+
+    keys = ["bins", "binning", "bin_edges", 
+            "rmse", "gini", "info"]
+    Result = collections.namedtuple("CalProb", keys)
+    return Result(**{"bin_edges": bin_edges,
+                     "bins"   : bins if isinstance(bins,int) else len(bins), 
+                     "binning": binning, 
+                     "rmse"   : rmse, 
+                     "gini"   : gini,
+                     "info"   : pd.DataFrame(data)})
+
+def auto_bin(proba, bins="fd"):
+    
+    ''' Binning method '''
+    kwds = {"bins" : bins, 
+            "range": (0, 1+np.finfo(float).eps)}
+    bins = np.histogram_bin_edges(proba, **kwds)
+    return bins
+
 def equalsamp(proba, bins=10):
 
     '''Equal sample'''
@@ -1581,16 +1713,17 @@ def equalbins(proba, bins=10):
     '''Equal bin-width'''
     a_min = min(proba)
     a_max = max(proba)+np.finfo(float).eps
-    return np.linspace(a_min, a_max, bins+1)
+    bins  = np.linspace(a_min, a_max, bins+1)
+    bins[[0,-1]] = [0., 1.+np.finfo(float).eps]
+    return bins
 
 def monotonize(y, x, bin_edges):
         
     '''
-    This function collaspes bin (to the left) that does 
-    not follow the trend. Collapsing repeats until either 
-    all values increase/decrease in the same direction 
-    (monotonic) or number of bins equals to 2, whatever 
-    comes first. 
+    This function collaspes bin (to the left) that does not follow 
+    the trend. Collapsing repeats until either all values increase
+    /decrease in the same direction (monotonic) or number of bins 
+    equals to 2, whatever comes first. 
 
     Parameters
     ----------
@@ -1638,85 +1771,6 @@ def monotonize(y, x, bin_edges):
         bins = bins[np.hstack(([True],index,[True]))]
         
     return bins
-
-def Calibrate(y_true, y_proba, equal_width=True, bins=10):
-    
-    '''
-    Finding a constant that minimizes the error between average 
-    probability and target percentage.
-    
-    Parameters
-    ----------
-    y_true : array-like of shape (n_samples,)
-        True labels or binary label indicators. 
-
-    y_proba : array-like of shape (n_samples,)
-        Target probability.
-        
-    equal_width : bool, default=True
-        If True, it uses equal-width binning, otherwise 
-        equal-sample binning is used instead.
-        
-    bins : int, default=10
-        Number of bins that algorithm starts off with.
-
-    Returns
-    -------
-    Result : collections.namedtuple
-        A namedtuple class with following fields:
-        - bins     : Number of bins
-        - binning  : Method of binning
-        - bin_edges: Monotonic bin edges 
-        - beta     : Calibration coefficient
-        - pre_mse  : Mean Squared Error (pre calibration)
-        - post_mse : Mean Squared Error (post calibration)
-        - info     : Calibration information (dict)
-
-    '''
-    # Initialize parameters.
-    keys = ["bins", "binning", "bin_edges", 
-            "beta", "pre_mse", "post_mse", "info"]
-    Result = collections.namedtuple("CalProb", keys)
-    
-    # Select binning methods.
-    binning = "equal-width" if equal_width else "equal-sample"
-    if equal_width: bin_edges = equalbins(y_proba, bins)
-    else: bin_edges = equalsamp(y_proba, bins)
-        
-    # Monotonise `bin_edges`.
-    bin_edges = monotonize(y_true, y_proba, bin_edges)
-    indices   = np.digitize(y_proba, bin_edges)
-    
-    info, n_samples = [], len(y_true)
-    for n in range(1, len(bin_edges)):
-        proba  = y_proba[indices==n]
-        actual = y_true[indices==n]
-        info.append([len(proba)/n_samples,
-                     np.min(proba),  np.max(proba),
-                     np.mean(proba), np.std(proba),
-                     np.mean(actual)])
-    info = np.array(info)
-    
-    # Calculate Beta
-    p, t  = info[:,[3]], info[:,[5]]
-    eps   = np.finfo(float).eps
-    a_min = eps/min(p) if min(p)==0 else eps
-    a_max = 1/max(p) if max(p)>0 else eps
-    betas = np.linspace(a_min, a_max, 101)
-    beta  = betas[np.argmin([((p*beta-t)**2).sum() 
-                             for beta in betas])]
-
-    # Calibration information table.
-    info = pd.DataFrame(np.hstack((bin_edges[:-1].reshape(-1,1), 
-                                   bin_edges[1:].reshape(-1,1),
-                                   info, p*beta)))
-    info.columns = ["r_min", "r_max", "p_samples", 
-                    "min_proba", "max_proba", "mean_proba", 
-                    "std_proba", "p_targets", "calib_proba"]
-    
-    return Result(*(bins, binning, bin_edges, float(beta[0]), 
-                    np.mean((p-t)**2), np.mean((beta*p-t)**2), 
-                    info.to_dict("list")))
 
 def cal_score(proba, pdo=20, odd=1., point=200., decimal=0, 
               min_prob=0.0001, max_prob=0.9999):
@@ -1810,7 +1864,7 @@ def get_classweights(start, stop, num=20, backward=0, forward=0, decimal=4):
     Weights : list of dicts
         List of weights associated with classes in the 
         form {class_label: weight}.
-        
+    
     Examples
     --------
     >>> get_classweights([1.,1.], [0.5, 2.], num=5)
