@@ -1686,7 +1686,7 @@ def Calibrator_base(y_true, y_proba, equal_width=True,
             "rmse", "gini", "info"]
     Result = collections.namedtuple("CalProb", keys)
     return Result(**{"bin_edges": bin_edges,
-                     "bins"   : bins if isinstance(bins,int) else len(bins), 
+                     "bins"   : bins if isinstance(bins,int) else len(bins)-1, 
                      "binning": binning, 
                      "rmse"   : rmse, 
                      "gini"   : gini,
