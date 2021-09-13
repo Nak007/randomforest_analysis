@@ -345,7 +345,7 @@ def cluster_scatter(x1, x2, y=None, ax=None, labels=None,
     if ax is None: ax = plt.subplots(figsize=(5, 4))[1]
     
     # Default value: y
-    y = (np.zeros(len(X)) if y is None else y).astype(int)
+    y = (np.zeros(len(x1)) if y is None else y).astype(int)
     
     # Default : colors
     unique = np.unique(y)
