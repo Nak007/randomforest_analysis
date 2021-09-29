@@ -268,7 +268,7 @@ class FeatureImportance():
                  max_iter=10, random_state=0):
         
         if methods is None: 
-            self.methods = {"gain", "dfc", "permute", "drop"}
+            self.methods = {"gain", "dfc", "perm", "drop"}
         else: self.methods = methods
         
         self.scoring = scoring 
@@ -340,7 +340,7 @@ class FeatureImportance():
             mean_score += result["importances_mean"]
             
         # Permutation importance
-        if "permute" in self.methods:
+        if "perm" in self.methods:
             
             kwargs = {"scoring" : self.scoring, 
                       "max_iter" : self.max_iter, 
