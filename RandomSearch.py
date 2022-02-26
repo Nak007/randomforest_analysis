@@ -1,9 +1,9 @@
 '''
 Available methods are the followings:
 [1] Modified_RandomizedSearch
-[2] ParameterVisualizer
-[3] PlotGridSearch
-[4] find_delta
+[2] PlotGridSearch
+[3] find_delta
+[4] get_param_grids
 
 Authors: Danusorn Sitdhirasdr <danusorn.si@gmail.com>
 versionadded:: 31-01-2022
@@ -33,9 +33,9 @@ plt.rcParams.update({'font.sans-serif':'Hiragino Sans GB'})
 plt.rc('axes', unicode_minus=False)
 
 __all__ = ["Modified_RandomizedSearch", 
-           "ParameterVisualizer", 
            "PlotGridSearch", 
-           "find_delta"]
+           "find_delta", 
+           "get_param_grids"]
 
 def PlotGridSearch(gs, scoring=None, ax=None, colors=None, 
                    decimal=4, tight_layout=True):
@@ -365,385 +365,37 @@ class Modified_RandomizedSearch():
         
         return self
 
-def pcf_base(X, option="eigval", mineigval=0.8, proportion=0.75):
+def get_param_grids(params):
     
     '''
-    Performs dimensionality reduction on obtained results using 
-    principal component factoring.
-    
-    Parameters
-    ----------
-    X : pd.DataFrame of shape (n_samples, n_features)
-        Training vector, where n_samples is the number of samples and 
-        n_features is the number of features.
-        
-    option : {"eigval", "varexp"}, default="eigval"
-        The function to select variables
-
-    mineigval : float, default=0.8
-        Minimum value of eigenvalues when choosing number of 
-        components. The algorithm selects component whose eigenvalue 
-        is grater than or equal to `mineigval`. The minimum of
-        component is 2. Only applicable if `option` is "eigval".
-   
-    proportion : float, default=0.75
-        Minimum proportion of variation explained (cumulative) when 
-        choosing components. The algorithm selects components when 
-        all proportions of variation explained is greater than
-        `proportion`. Only applicable if `option` is "varexp".
-        
-    Returns
-    -------
-    Results : collections.namedtuple
-        A namedtuple class with following fields:
-        - "eigvals"  : EigenValues of the selected components
-        - "eigvecs"  : EigenVectors of the selected components
-        - "varprops" : Variance explained by each of the components
-        - "princoms" : Principal components
-        - "features" : List of features
-        
-    '''
-    # =============================================================
-    if isinstance(X, pd.DataFrame):
-        if X.shape[1]<=2:
-            raise ValueError(f'n_features must be greater than 2.' 
-                             f'Got {X.shape[1]} instead.')
-    else: raise TypeError(f'Data must be pd.DataFrame.' 
-                          f' Got {type(X)} instead.')
-    # -------------------------------------------------------------   
-    if option not in ["eigval", "varexp"]:
-        raise ValueError(f'`option` must be either "eigval" or ' 
-                         f'"varexp". Got {option} instead.')
-    # -------------------------------------------------------------
-    # Determine Eigenvalues and corresponding Eigenvector.
-    std_X = ((X - np.mean(X,0)) / np.std(X,0)).values
-    corr  = np.corrcoef(std_X.T)
-    eigvals, eigvecs = np.linalg.eig(corr)
-    if option=="varexp":
-        cumvar = np.cumsum(eigvals/eigvals.sum())
-        proportion = min(max(0, proportion),1)
-        n_components = max(np.argmax(cumvar>=proportion)+1, 2)
-    else: n_components = max((eigvals>=mineigval).sum(), 2)
-    # -------------------------------------------------------------
-    # Determine principal components.
-    indices  = np.argsort(eigvals)[::-1]
-    eigvals  = eigvals[indices][:n_components]
-    eigvecs  = eigvecs[:,indices][:,:n_components]
-    varprops = eigvals / X.shape[1]
-    princoms = std_X.dot(eigvecs[:,:n_components])
-    digit    = int(np.ceil(np.log(n_components)/np.log(10)))
-    columns  = ["PC_{}".format(str(n).zfill(digit)) for n in 
-                np.arange(n_components) + 1]
-    eigvecs  = pd.DataFrame(eigvecs.real, columns=columns,
-                            index=list(X))
-    # -------------------------------------------------------------
-    keys = ["eigvals", "eigvecs", "varprops", 
-            "princoms", "features"]
-    Results = collections.namedtuple("Results", keys)
-    Results = Results(*(eigvals, eigvecs, varprops, 
-                        princoms, list(X)))
-    # =============================================================
-    
-    return Results
-
-def plot_pcf_base(Results, ax=None, colors=None, pc_pair=(0,1), 
-                  target=None, exclude=None, scatter_kwds=None, 
-                  tight_layout=True):
-    
-    '''
-    Plot results from `PCF_base`.
+    Create parameter grids from several sets of parameters.
 
     Parameters
     ----------
-    Results : namedtuple
-        Result from `pcf_base` function.
-    
-    ax : Matplotlib axis object, default=None
-        Predefined Matplotlib axis. If None, it uses default figsize.
-        
-    colors : list of color-hex, default=None
-        Color-hex must be arranged in same order as `Results.features`. 
-        If None, it uses default colors from Matplotlib.
-    
-    pc_pair : (int, int), default=(0,1)
-        Pair of principal component indices for x and y axis, 
-        respectively.
-        
-    target : array-like of shape (n_samples,), default=None
-        Binary target relative to X (parameters).
-        
-    exclude : list of str, default=None
-        List of features to be excluded from the plot.
-        
-    scatter_kwds : keywords, default=None
-        Keyword arguments to be passed to "ax.scatter".
-    
-    tight_layout : bool, default=True
-        If True, it adjusts the padding between and around subplots i.e. 
-        plt.tight_layout().
+    params : list of dict
+        List of dictionaries containing parameters of estimator.
 
     Returns
     -------
-    ax : Matplotlib axis object
-    
+    param_grids : dict
+        Dictionary with parameters names (str) as keys and lists of 
+        parameters to try.
+
     '''
-    # ===============================================================
-    # Default ax and colors.  
-    if ax is None: ax = ax = plt.subplots(figsize=(9, 5))[1] 
-    features = list(Results.features)
-    n_features = len(features)
-    colors = ([ax._get_lines.get_next_color() for _ in 
-               range(n_features)] if colors is None else colors)
-    # ===============================================================
-    
-    # Scatter plots
-    # ===============================================================
-    patches, labels, (pc1, pc2) = [], [], pc_pair
-    x1, x2 = Results.princoms[:,pc1], Results.princoms[:,pc2]
-    if scatter_kwds is None: scatter_kwds = dict()
-    kwds = {"s"         : scatter_kwds.get("s", 35), 
-            "marker"    : scatter_kwds.get("marker", "o"), 
-            "linewidth" : scatter_kwds.get("linewidth", 0.8), 
-            "alpha"     : scatter_kwds.get("alpha", 0.4),
-            "edgecolor" : "none", 
-            "facecolor" : scatter_kwds.get("facecolor", "grey")}
-    ax.scatter(x1, x2, **kwds)
-    legend_kwds = dict(marker=kwds["marker"], markersize=8, 
-                       markerfacecolor=kwds["facecolor"], 
-                       markeredgecolor=kwds["edgecolor"],
-                       alpha=kwds["alpha"], color='none')
-    sc1 = mpl.lines.Line2D([0],[0], **legend_kwds)
-    # ---------------------------------------------------------------
-    kwds.update(dict(facecolor="none", alpha=1, 
-                     edgecolor=scatter_kwds.get("edgecolor", "grey")))
-    ax.scatter(x1, x2, **kwds)
-    legend_kwds = dict(marker=kwds["marker"], 
-                       markerfacecolor=kwds["facecolor"], 
-                       markeredgecolor=kwds["edgecolor"],
-                       color='none', markersize=8)
-    sc2 = mpl.lines.Line2D([0],[0], **legend_kwds)
-    patches += [(sc1, sc2)]
-    labels  += ["Parameters (n={:,d})".format(len(x1))]
-    # ---------------------------------------------------------------  
-    if target is not None:
-        kwds = dict(edgecolor="#ff3f34", facecolor="none", 
-                    s=scatter_kwds.get("s", 35) * 3.5)
-        sc3 = ax.scatter(x1[target==1], x2[target==1], **kwds)
-        kwds = dict(marker='o', color='none', markerfacecolor='none', 
-                    markersize=8, markeredgecolor="r")
-        patches += [mpl.lines.Line2D([0],[0], **kwds)]
-        labels  += ["Targets (n={:,d})".format(target.sum())]
-    # ===============================================================
+    param_grids = None
+    for p in params:
+        if param_grids is None:
+            param_grids = dict([(k,[v]) for k,v in p.items()])
+        else: 
+            for k,v in p.items():
+                if v not in param_grids[k]:
+                    param_grids[k] += [v]
 
-    # ===============================================================
-    # Calculate factor loadings.
-    eigvecs  = Results.eigvecs.values.real * np.sqrt(Results.eigvals)
-    varprops = Results.varprops
-    scale = min(find_scale(eigvecs[:,pc_pair], ax)) 
-    commu = pow(eigvecs[:,pc_pair], 2).sum(1)
-    zorder= n_features + 2
-    kwds  = dict(head_length=0.8, head_width=0.7, tail_width=0.2)
-    arrowstyle = mpl.patches.ArrowStyle.Simple(**kwds)
-    zorders = np.array(features)[np.argsort(commu)][::-1].tolist()
-    # ---------------------------------------------------------------
-    # https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.patches.
-    # FancyArrowPatch.html#matplotlib.patches.FancyArrowPatch
-    if exclude is None: exclude = []
-    else:
-        var = set(exclude).difference(features)
-        if len(var)>0:
-            raise ValueError(f'Exluded features must be {features}.' 
-                             f'Got {var} instead.')
-    # ---------------------------------------------------------------
-    for n,col in enumerate(features):
-        if col not in exclude:
-            size = tuple(eigvecs[n,pc_pair].real * 0.85 * scale)
-            kwds = dict(mutation_scale=20, arrowstyle = arrowstyle, 
-                        edgecolor="grey", facecolor=colors[n], alpha=1,
-                        linewidth=0.8, zorder=zorders.index(col)+2)
-            arrow = mpatches.FancyArrowPatch((0, 0), size, **kwds)
-            ax.add_patch(arrow)
-            patches += [arrow]
-            labels += ["{} ({:.1%})".format(col, commu[n])]
-    # ---------------------------------------------------------------
-    ax.axvline(0, color="#cccccc", lw=0.8, zorder=-1)
-    ax.axhline(0, color="#cccccc", lw=0.8, zorder=-1)
-    # ---------------------------------------------------------------
-    ax.xaxis.set_major_locator(mpl.ticker.MaxNLocator(6))
-    ax.yaxis.set_major_locator(mpl.ticker.MaxNLocator(6))
-    # ---------------------------------------------------------------
-    ax.spines["right"].set_visible(False)
-    ax.spines["top"].set_visible(False)
-    PC_str = "PC{} ({:.1%})".format
-    ax.set_xlabel(PC_str(pc1+1, varprops[pc1]), fontsize=13)
-    ax.set_ylabel(PC_str(pc2+1, varprops[pc2]), fontsize=13)
-    ax.set_facecolor('white')
-    ax.patch.set_alpha(0)
-    # ---------------------------------------------------------------
-    expvar = varprops[np.unique(pc_pair)].sum()
-    text = "Explained Variance = {:.1%}".format(expvar)
-    props = dict(boxstyle='square', facecolor='white', alpha=0.8, 
-                 edgecolor="none", pad=0.1)
-    ax.text(1, 0.02, text, transform=ax.transAxes, fontsize=13,
-            va='bottom', ha="right", bbox=props)
-    # ---------------------------------------------------------------
-    legend = ax.legend(patches, labels, edgecolor="none", ncol=1,
-                       borderaxespad=0.25, markerscale=1.5, 
-                       columnspacing=0.3, labelspacing=0.7, 
-                       handletextpad=0.5, prop=dict(size=12), 
-                       loc='upper left') 
-    legend.set_bbox_to_anchor([1.01,1], transform = ax.transAxes)
-    # ---------------------------------------------------------------
-    ax.tick_params(axis='both', labelsize=11)
-    if tight_layout: plt.tight_layout()
-    # ===============================================================
-    
-    return ax
+    for k,v in param_grids.items():
+        try: param_grids[k] = np.sort(v).tolist()
+        except: pass
 
-def find_scale(xy, ax):
-    
-    '''Calculate minimum scale for vectors'''
-    x, y = xy[:,0], xy[:,1]
-    ylim = np.absolute(ax.get_ylim())
-    xlim = np.absolute(ax.get_xlim())
-    lims = np.array(list(product(xlim, ylim)))
-    shape = (len(x), 2)
-    condlist = [(x < 0) & (y < 0), (x < 0) & (y >=0),
-                (x > 0) & (y < 0), (x > 0) & (y >=0)]
-    choicelist = [(np.full(shape, lims[n,:]) / abs(xy)).min(1) 
-                  for n in range(4)]
-    return np.select(condlist, choicelist) 
-
-class ParameterVisualizer:
-    
-    '''
-    Visualize parameters by using Principal Component Analysis.
-
-    Parameters
-    ----------
-    option : {"eigval", "varexp"}, default="eigval"
-        The function to select variables
-
-    mineigval : float, default=0.8
-        Minimum value of eigenvalues when choosing number of 
-        components. The algorithm selects component whose eigenvalue 
-        is grater than or equal to `mineigval`. The minimum of
-        component is 2. Only applicable if `option` is "eigval".
-
-    proportion : float, default=0.75
-        Minimum proportion of variation explained (cumulative) when 
-        choosing components. The algorithm selects components when 
-        all proportions of variation explained is greater than
-        `proportion`. Only applicable if `option` is "varexp".
-        
-    ''' 
-    def __init__(self, option="eigval", mineigval=0.8, proportion=0.75):
-        
-        self.option = option
-        self.mineigval = mineigval
-        self.proportion = proportion
-    
-    def fit(self, X):
-    
-        '''
-        Performs dimensionality reduction on obtained results using 
-        principal component factoring.
-
-        Parameters
-        ----------
-        X : pd.DataFrame of shape (n_samples, n_features)
-            Training vector, where n_samples is the number of samples and 
-            n_features is the number of features.
-
-        Returns
-        -------
-        Results : collections.namedtuple
-            A namedtuple class with following fields:
-            - "eigvals"  : EigenValues of the selected components
-            - "eigvecs"  : EigenVectors of the selected components
-            - "varprops" : Variance explained by each of the components
-            - "princoms" : Principal components
-            - "features" : List of features
-            
-        '''
-        self.Results = pcf_base(X.copy(), option=self.option, 
-                                mineigval=self.mineigval, 
-                                proportion=self.proportion)
-        return self
-    
-    def plot(self, ax=None, colors=None, pc_pair=(0,1), target=None, 
-             exclude=None, scatter_kwds=None, tight_layout=True):
-    
-        '''
-        Plot results.
-
-        Parameters
-        ----------
-        ax : Matplotlib axis object, default=None
-            Predefined Matplotlib axis. If None, it uses default figsize.
-
-        colors : list of color-hex, default=None
-            Color-hex must be arranged in same order as `Results.features`. 
-            If None, it uses default colors from Matplotlib.
-
-        pc_pair : (int, int), default=(0,1)
-            Pair of principal component indices for x and y axis, 
-            respectively.
-
-        target : array-like of shape (n_samples,), default=None
-            Binary target relative to X (parameters).
-
-        exclude : list of str, default=None
-            List of features to be excluded from the plot.
-
-        scatter_kwds : keywords, default=None
-            Keyword arguments to be passed to "ax.scatter".
-
-        tight_layout : bool, default=True
-            If True, it adjusts the padding between and around subplots i.e. 
-            plt.tight_layout().
-
-        Returns
-        -------
-        ax : Matplotlib axis object
-        
-        '''
-        return plot_pcf_base(self.Results, ax=ax, colors=colors, 
-                             pc_pair=pc_pair, target=target, 
-                             exclude=exclude, scatter_kwds=scatter_kwds, 
-                             tight_layout=tight_layout)
-    
-    def get_param_grids(self, params):
-    
-        '''
-        Create parameter grids from several sets of parameters.
-
-        Parameters
-        ----------
-        params : list of dict
-            List of dictionaries containing parameters of estimator.
-
-        Returns
-        -------
-        param_grids : dict
-            Dictionary with parameters names (str) as keys and lists of 
-            parameters to try.
-
-        '''
-        param_grids = None
-        for p in params:
-            if param_grids is None:
-                param_grids = dict([(k,[v]) for k,v in p.items()])
-            else: 
-                for k,v in p.items():
-                    if v not in param_grids[k]:
-                        param_grids[k] += [v]
-
-        for k,v in param_grids.items():
-            try: param_grids[k] = np.sort(v).tolist()
-            except: pass
-
-        return param_grids
+    return param_grids
 
 def find_delta(rs, remove=True, percent=True):
     

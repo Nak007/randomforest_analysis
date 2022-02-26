@@ -7,6 +7,7 @@ Available methods are the followings:
 [5] cluster_radar
 [6] create_cmap
 [7] matplotlib_cmap
+[8] adjust_label
 
 Authors: Danusorn Sitdhirasdr <danusorn.si@gmail.com>
 versionadded:: 22-07-2021
@@ -17,25 +18,36 @@ from scipy.stats import gaussian_kde
 from scipy.ndimage.filters import gaussian_filter1d
 from scipy import (stats, linalg)
 
-import matplotlib.pylab as plt
 from matplotlib.colors import ListedColormap
 from matplotlib import cm
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+import matplotlib.transforms as transforms
+from matplotlib.ticker import(FixedLocator, 
+                              FixedFormatter, 
+                              StrMethodFormatter,
+                              FuncFormatter)
 from mpl_toolkits.axes_grid1 import Grid
 from itertools import product
+
+plt.rcParams.update({'font.family':'sans-serif'})
+plt.rcParams.update({'font.sans-serif':'Hiragino Sans GB'})
+plt.rc('axes', unicode_minus=False)
 
 __all__  = ["matplotlib_cmap", "create_cmap",
             "cluster_pie", 
             "cluster_hist", 
             "cluster_scatter",
             "cluster_matrix",
-            "cluster_radar"]
+            "cluster_radar", 
+            "adjust_label"]
 
 def matplotlib_cmap(name='viridis', n=10):
 
     '''
     Parameters
     ----------
-    name : matplotlib Colormap or str, default='viridis'
+    name : matplotlib Colormap str, default='viridis'
         Name of a colormap known to Matplotlib. 
     
     n : int, defualt=10
@@ -44,15 +56,14 @@ def matplotlib_cmap(name='viridis', n=10):
     Returns
     -------
     colors : list of color-hex
-        List of color-hex codes from defined Matplotlib
-        Colormap. Such list contains "n" shades.
+        List of color-hex codes from defined Matplotlib Colormap. 
+        Such list contains "n" shades.
         
     '''
     c_hex = '#%02x%02x%02x'
     c = cm.get_cmap(name)(np.linspace(0,1,n))
     c = (c*255).astype(int)[:,:3]
-    colors = [c_hex % (c[i,0],c[i,1],c[i,2]) 
-              for i in range(n)]
+    colors = [c_hex % (c[i,0],c[i,1],c[i,2]) for i in range(n)]
     return colors
 
 def create_cmap(colors=None):
@@ -129,7 +140,7 @@ def cluster_pie(y, ax=None, labels=None, colors=None,
     if ax is None: ax = plt.subplots(figsize=(5, 4))[1]
     
     unq, unq_count = np.unique(y, return_counts=True)
-    labels = ([f"Cluster ({n})" for n in unq+1] 
+    labels = ([f"Cluster {n}" for n in unq+1] 
               if labels is None else labels)
     
     kwds = dict(explode = (unq_count==max(unq_count)).astype(int)*0.1,
@@ -137,11 +148,11 @@ def cluster_pie(y, ax=None, labels=None, colors=None,
                            if colors is None else colors), 
                 labels  = ['{}\n({:,d})'.format(*v) for 
                            v in zip(labels, unq_count)], 
-                autopct = "{:,.1f}%".format, 
+                autopct = "{:,.0f}%".format, 
                 shadow  = True, 
-                startangle=90, labeldistance=1.3,
+                startangle = 90, labeldistance=1.3,
                 wedgeprops = dict(edgecolor="#2f3640", lw=2), 
-                textprops  = dict(fontsize=14, ha="center", 
+                textprops  = dict(fontsize=13, ha="center", 
                                   fontweight=500, color="#2f3640"))
     ax.pie(unq_count, **(kwds if pie_kwds is 
                          None else {**kwds,**pie_kwds}))
@@ -150,9 +161,8 @@ def cluster_pie(y, ax=None, labels=None, colors=None,
     return ax
 
 def cluster_hist(x, y=None, ax=None, labels=None, colors=None, 
-                 fill_kwds=None, plot_kwds=None, 
-                 tight_layout=True, bins="fd", sigma=0.5, 
-                 whis=1.5, plot_order=None):
+                 fill_kwds=None, plot_kwds=None, tight_layout=True, 
+                 bins="fd", sigma=0.5, whis=1.5, plot_order=None):
     
     '''
     Plot a cluster Kernal Density Estimation (KDE) chart.
@@ -160,26 +170,24 @@ def cluster_hist(x, y=None, ax=None, labels=None, colors=None,
     Parameters
     ----------
     x : 1D-array or pd.Series
-        Sample input. All elements must be finite, i.e. no 
-        NaNs or infs. 
+        Sample input. All elements must be finite, i.e. no NaNs or 
+        infs. 
 
     y : 1D-array or pd.Series of int, default=None
-        Array of cluster labels (0 to n_clusters-1). If None,
-        an array of single class is used instead.
+        Array of cluster labels (0 to n_clusters-1). If None, an 
+        array of single class is used instead.
     
     ax : Matplotlib axis object, default=None
-        Predefined Matplotlib axis. If None, ax is created 
-        with default figsize.
+        Predefined Matplotlib axis. If None, ax is created with 
+        default figsize.
 
     labels : list, default: None
-        A sequence of strings providing the labels for each 
-        class. If None, 'Cluster {n+1}' is assigned, where n 
-        is the class in y.
+        A sequence of strings providing the labels for each class. If 
+        None, 'Cluster {n+1}' is assigned, where n is the class in y.
     
     colors : list of color-hex, default=None
-        Number of color-hex must be greater than or equal to
-        number of classes. If None, it uses default colors 
-        from Matplotlib
+        Number of color-hex must be greater than or equal to number 
+        of classes. If None, it uses default colors from Matplotlib.
     
     fill_kwds : keywords, default=None
         Keyword arguments to be passed to "ax.fill_between".
@@ -194,25 +202,25 @@ def cluster_hist(x, y=None, ax=None, labels=None, colors=None,
     bins : int or str, default="fd"
         Number of bins (np.histogram_bin_edges) [1].
     
-    sigma : float, default=0.5
-        Standard deviation for Gaussian kernel. Sigma must 
-        be greater than 0. The higher the sigma the smoother
-        the probability density curve (PDF)
+    sigma : float, default=None
+        Standard deviation for Gaussian kernel. Sigma must be greater 
+        than 0. The higher the sigma the smoother the probability 
+        density curve (PDF). If None, it uses bin_width derived from
+        `bins`.
         
-    whis : float, default=1.5
-        It determines the reach of the whiskers to the beyond 
-        the first and third quartiles, which are Q1 - whis*IQR, 
-        and Q3 + whis*IQR, respectively. This applies to both
-        coordinates and lower and upper bounds accordingly.
+    whis : float, default=1.5  
+        It determines the reach of the whiskers to the beyond the 
+        first and third quartiles, which are Q1 - whis*IQR, and Q3 + 
+        whis*IQR, respectively. This applies to both coordinates and 
+        lower and upper bounds accordingly.
     
     plot_order : list of int, default=None
         List of class order to be plotted.
     
     References
     ----------
-    .. [1] https://numpy.org/doc/stable/reference/generated/
-           numpy.histogram_bin_edges.html#numpy.histogram_
-           bin_edges
+    .. [1] https://numpy.org/doc/stable/reference/generated/numpy.
+           histogram_bin_edges.html#numpy.histogram_bin_edges
     
     Returns
     -------
@@ -241,6 +249,7 @@ def cluster_hist(x, y=None, ax=None, labels=None, colors=None,
     # Determine bins.
     bins   = np.histogram(x, bins)[1]
     xticks = bins[1:] + np.diff(bins)
+    if sigma is None: sigma = np.diff(bins)[0]
     
     for n,c in enumerate(plot_order):
         
@@ -275,66 +284,63 @@ def cluster_scatter(x1, x2, y=None, ax=None, labels=None,
     Parameters
     ----------
     x1, x2 : 1D-array or pd.Series
-        The horizontal, and vertical coordinates of the data 
-        points, respectively. All elements must be finite, 
-        i.e. no NaNs or infs. 
+        The horizontal, and vertical coordinates of the data points, 
+        respectively. All elements must be finite, i.e. no NaNs or 
+        infs. 
     
     y : 1D-array or pd.Series of int, default=None
-        Array of cluster labels (0 to n_clusters-1). If None,
-        an array of single class is used instead.
+        Array of cluster labels (0 to n_clusters-1). If None, an 
+        array of single class is used instead.
     
     ax : Matplotlib axis object, default=None
-        Predefined Matplotlib axis. If None, ax is created 
-        with default figsize.
+        Predefined Matplotlib axis. If None, ax is created with 
+        default figsize.
 
     labels : list, default: None
-        A sequence of strings providing the labels for each 
-        class. If None, 'Cluster {n+1}' is assigned, where n 
-        is the class in y.
+        A sequence of strings providing the labels for each class. If 
+        None, 'Cluster {n+1}' is assigned, where n is the class in y.
 
     colors : list of color-hex, default=None
-        Number of color-hex must be greater than or equal to
-        number of classes. If None, it uses default colors 
-        from Matplotlib
+        Number of color-hex must be greater than or equal to number 
+        of classes. If None, it uses default colors from Matplotlib.
     
     scatter_kwds : keywords, default=None
         Keyword arguments to be passed to "ax.scatter".
 
     tight_layout : bool, default=True
-        If True, it adjusts the padding between and around 
-        subplots i.e. plt.tight_layout().
+        If True, it adjusts the padding between and around subplots 
+        i.e. plt.tight_layout().
               
     whis : float, default=1.5
-        It determines the reach of the whiskers to the beyond 
-        the first and third quartiles, which are Q1 - whis*IQR, 
-        and Q3 + whis*IQR, respectively. This applies to both
-        coordinates and lower and upper bounds accordingly.
+        It determines the reach of the whiskers to the beyond the 
+        first and third quartiles, which are Q1 - whis*IQR, and Q3 + 
+        whis*IQR, respectively. This applies to both coordinates and 
+        lower and upper bounds accordingly.
     
     frac : float, default=1
         Fraction of items to be plotted.
         
     random_state : int, default=0
-        Seed for random number generator to randomize samples
-        to be plotted.
+        Seed for random number generator to randomize samples to be 
+        plotted.
     
     use_kde : bool, default=False
-        If True, a kernel-density estimate using Gaussian 
-        kernels is used, otherwise scatter plots [1].
+        If True, a kernel-density estimate using Gaussian kernels is 
+        used, otherwise scatter plots [1].
     
     cmap : str or Colormap, default=None
-        A Colormap instance e.g. cm.get_cmap('Reds',20) or 
-        registered colormap name. This is relevant when use_kde 
-        is True [2]. If None, it defaults to "Blues".
+        A Colormap instance e.g. cm.get_cmap('Reds',20) or registered 
+        colormap name. This is relevant when use_kde is True [2]. If 
+        None, it defaults to "Blues".
         
     plot_order : list of int, default=None
         List of class order to be plotted.
     
     References
     ----------
-    .. [1] https://docs.scipy.org/doc/scipy/reference/generated/
-           scipy.stats.gaussian_kde.html
-    .. [2] https://matplotlib.org/stable/tutorials/colors/
-           colormaps.html
+    .. [1] https://docs.scipy.org/doc/scipy/reference/generated/scipy.
+           stats.gaussian_kde.html
+    .. [2] https://matplotlib.org/stable/tutorials/colors/colormaps.html
     
     Returns
     -------
@@ -376,13 +382,16 @@ def cluster_scatter(x1, x2, y=None, ax=None, labels=None,
     if use_kde==True:
         
         if cmap is None: cmap = 'Blues' 
-        if isinstance(cmap, str): cmap = cm.get_cmap(cmap,50)
-    
-        xx = np.vstack((x1, x2))
-        kwds = dict(c=gaussian_kde(xx)(xx), cmap=cmap,
-                    marker='s', alpha=0.8, s=10)
-        ax.scatter(x1, x2, **({**kwds, **scatter_kwds} 
-                              if scatter_kwds 
+        if isinstance(cmap, str): 
+            cmap = cm.get_cmap(cmap, 50)
+        
+        try:
+            data = np.vstack((x1,x2))
+            values = gaussian_kde(data).evaluate(data)
+        except: values = gaussian_kde(x1).evaluate(x1)
+            
+        kwds = dict(c=values, cmap=cmap, marker='s', alpha=0.8, s=10)
+        ax.scatter(x1, x2, **({**kwds, **scatter_kwds} if scatter_kwds 
                               is not None else kwds))
     # Scatter plot
     elif use_kde==False:
@@ -391,8 +400,7 @@ def cluster_scatter(x1, x2, y=None, ax=None, labels=None,
         for n,c in enumerate(plot_order):
             kwds.update(dict(ec=colors[n], label=labels[n]))
             ax.scatter(x1[(y==c)], x2[(y==c)], 
-                       **({**kwds, **scatter_kwds} 
-                          if scatter_kwds 
+                       **({**kwds, **scatter_kwds} if scatter_kwds 
                           is not None else kwds))
     
     # Set limits of coordinates.
@@ -403,10 +411,10 @@ def cluster_scatter(x1, x2, y=None, ax=None, labels=None,
     if tight_layout: plt.tight_layout()
         
     return ax
-        
+
 def __IQR__(a, whis, a_min, a_max):
     
-    '''Interquatile range'''
+    '''Private Function: Interquatile range'''
     Q1,Q3 = np.percentile(a, [25, 75])
     if Q1==Q3: return (a_min, a_max)
     else: return (np.fmax(Q1-whis*(Q3-Q1),a_min), 
@@ -414,60 +422,57 @@ def __IQR__(a, whis, a_min, a_max):
     
 def __indices__(N, frac=1, random_state=0):
     
-    '''Random indices'''
+    '''Private Function: Random indices'''
     # Select samples
     np.random.seed(random_state)
     indices = np.arange(0,N)
     if frac<1:
-        kwds = dict(size=np.fmax(int(frac*N), 10), 
-                    replace=False)
+        kwds = dict(size=np.fmax(int(frac*N), 10), replace=False)
         select = np.random.choice(indices, **kwds)
     else: select = indices.copy()
     return np.isin(indices, select)
-    
-def cluster_matrix(X, y=None, colors=None, whis=1.5, 
-                   plot_order=None, off_diagonal="scatter",
-                   hist_kwds=None, scatter_kwds=None, 
-                   n_limit=1000, figsize=None, 
-                   show_corr=True):
+
+def cluster_matrix(X, y=None, colors=None, whis=1.5, plot_order=None, 
+                   off_diagonal="scatter", hist_kwds=None, 
+                   scatter_kwds=None, n_limit=1000, figsize=None, 
+                   show_corr=True, label_kwds=None):
 
     '''
-    Draw a matrix of scatter plots towards a pairwise 
-    comparison to observe interaction of variables. NaN is 
-    ignored. Each numeric variable in data will be shared 
-    across a single row and the x-axes across a single column
+    Draw a matrix of scatter plots towards a pairwise comparison to 
+    observe interaction of variables. NaN is ignored. Each numeric 
+    variable in data will be shared across a single row and the 
+    x-axes across a single column.
 
     Parameters
     ----------
     X : pd.DataFrame, of shape (n_samples, n_features)
         Input sample.
-        
+       
     y : 1D-array or pd.Series of int, default=None
-        Array of cluster labels (0 to n_clusters-1). If None,
-        an array of single class is used instead. This 
-        overrides hist_kwds and scatter_kwds.
+        Array of cluster labels (0 to n_clusters-1). If None, an 
+        array of single class is used instead. This overrides 
+        `hist_kwds` and `scatter_kwds`.
     
     colors : list of color-hex, default=None
-        Number of color-hex must be greater than or equal to
-        number of classes. If None, it uses default colors 
-        from Matplotlib. This overrides hist_kwds and 
-        scatter_kwds.
+        Number of color-hex must be greater than or equal to number 
+        of classes. If None, it uses default colors from Matplotlib. 
+        This overrides `hist_kwds` and `scatter_kwds`.
         
     whis : float, default=1.5
-        It determines the reach of the whiskers to the beyond 
-        the first and third quartiles, which are Q1 - whis*IQR, 
-        and Q3 + whis*IQR, respectively. This applies to both
-        coordinates and lower and upper bounds accordingly.
-        This overrides hist_kwds and scatter_kwds.
+        It determines the reach of the whiskers to the beyond the 
+        first and third quartiles, which are Q1 - whis*IQR, and Q3 + 
+        whis*IQR, respectively. This applies to both coordinates and 
+        lower and upper bounds accordingly. This overrides `hist_kwds` 
+        and `scatter_kwds`.
         
     plot_order : list of int, default=None
-        List of class order to be plotted. This overrides 
-        hist_kwds and scatter_kwds.
+        List of class order to be plotted. This overrides `hist_kwds` 
+        and `scatter_kwds`.
          
     off_diagonal : {"scatter", "kde", "both"}, default="scatter"
-        Pick between "kde", "scatter", and "both" for either 
-        Kernel Density Estimation or scatter or both in the 
-        off-diagonal. This overrides scatter_kwds.
+        Pick between "kde", "scatter", and "both" for either Kernel 
+        Density Estimation or scatter or both in the off-diagonal. 
+        This overrides `scatter_kwds`.
    
     hist_kwds : keywords, default=None
         Keyword arguments to be passed to "cluster_hist".
@@ -476,16 +481,20 @@ def cluster_matrix(X, y=None, colors=None, whis=1.5,
         Keyword arguments to be passed to "cluster_scatter".
         
     n_limit : int, default=1000
-        Number of instances to be plotted in the off-diagonal 
-        plots. n_limit should be less than len(X).
+        Number of instances to be plotted in the off-diagonal plots. 
+        n_limit should be less than len(X).
         
     figsize : (float,float), default=None
-        A tuple (width, height) in inches. If None, a default
-        figsize is applied i.e. (n_rows*1.3, n_cols*1.3).
+        A tuple (width, height) in inches. If None, a default figsize 
+        is applied i.e. (n_rows*1.3, n_cols*1.3).
     
     show_corr : bool, default=True
-        If True, it shows a Pearson correlation coefficient for
-        every pariwise plot (off-diagonal).
+        If True, it shows a Pearson correlation coefficient for every 
+        pariwise plot (off-diagonal).
+        
+    label_kwds : keyword, default=None
+        Keyword arguments to be passed to "adjust_label". If None, it
+        defaults to {"max_lines":2, "factor":0.95, "suffix":"...."}.
     
     Returns
     -------
@@ -497,19 +506,18 @@ def cluster_matrix(X, y=None, colors=None, whis=1.5,
     n_rows, n_cols = (X.shape[1],)*2
     figsize = (n_rows*1.3, n_cols*1.3) if figsize is None else figsize
     fig = plt.figure(figsize=figsize)
-    grid = np.array(Grid(fig, rect=111, nrows_ncols=(n_rows, n_cols), 
+    grid = np.array(Grid(fig, rect=111, nrows_ncols=(n_rows,n_cols), 
                          share_x=False, share_y=False, axes_pad=0))
     
     # Fraction, Pairs of variables, and axes.
     frac, columns = np.fmin(n_limit/len(X),1), X.columns
     pairs = zip(list(product(columns, columns)), grid, 
                 product(range(n_rows), range(n_cols)))
-    
     y = (np.zeros(len(X)) if y is None else y).astype(int)
 
-    for (var1, var2), ax, (r,c) in pairs:
+    for (var1,var2), ax, (r,c) in pairs:
         
-        notna = (X[[var1, var2]].notna().sum(axis=1)==2).values
+        notna = (X[[var1,var2]].notna().sum(axis=1)==2).values
         
         if notna.sum()>0:
             
@@ -520,14 +528,12 @@ def cluster_matrix(X, y=None, colors=None, whis=1.5,
             # Diagonal plot
             if var1==var2:
                 
-                default   = {"plot_kwds": dict(lw=1)}
-                hist_kwds = (default if hist_kwds is None 
-                             else {**default, **hist_kwds})
-                
+                default   = {"plot_kwds": {"lw":1}}
+                hist_kwds = (default if hist_kwds is None else 
+                             {**default, **hist_kwds})
                 kwds = dict(y=y, ax=ax, colors=colors, whis=whis, 
                             plot_order=plot_order, tight_layout=False)
                 ax = cluster_hist(x1, **{**hist_kwds, **kwds})
-                ax.legend().set_visible(False)
 
             # Off-diagonal plot
             elif var1!=var2: 
@@ -542,32 +548,89 @@ def cluster_matrix(X, y=None, colors=None, whis=1.5,
                     
                 kwds = dict(y=y0, ax=ax, frac=frac, whis=whis,
                             colors=colors, plot_order=plot_order, 
-                            tight_layout=False, use_kde=use_kde)
-                    
+                            tight_layout=False, use_kde=use_kde)    
                 ax = cluster_scatter(x2, x1, **{**scatter_kwds, **kwds})
-                
-                if ax.get_legend() is not None:
-                    ax.legend().set_visible(False)
-                
+
                 if show_corr:
                     corr, pvalue = stats.pearsonr(x1, x2)
-                    ax.text(0.95, 0.06, ('%.2f' % corr), size=11, 
-                            transform=ax.transAxes, ha="right",
-                            bbox=dict(boxstyle='square', alpha=0.8, 
+                    ax.text(0.95, 0.05, ('%.2f' % corr), size=11, 
+                            transform=ax.transAxes, ha="right", va="bottom",
+                            bbox=dict(boxstyle='round' , alpha=1, pad=0.2,
                                       facecolor='white', edgecolor='none'))
                     
+            if ax.get_legend() is not None: ax.legend().set_visible(False)      
             ax.set(xticks=[], yticks=[])  
-            if (c==0) & (r==n_rows-1):
-                ax.set_ylabel(var1, fontsize=11)
-                ax.set_xlabel(var2, fontsize=11)
-            elif (c==0):
-                ax.set_ylabel(var1, fontsize=11)
-            elif r==n_rows-1:
-                ax.set_xlabel(var2, fontsize=11)
-            
-    plt.tight_layout(pad=0)
+            if c==0: ax.set_ylabel(var1, fontsize=12)
+            if r==n_rows-1: ax.set_xlabel(var2, fontsize=12)        
     
+    # Adjust labels both x and y axis.
+    plt.tight_layout(pad=0)
+    if label_kwds is None: 
+        label_kwds = {"max_lines":2, "factor":0.95, "suffix":"...."}
+    for ax in grid[0::n_cols]: adjust_label(ax, "y", **label_kwds)
+    for ax in grid[-n_cols: ]: adjust_label(ax, "x", **label_kwds)   
+
     return grid.reshape((n_rows, n_cols))
+
+def adjust_label(ax, which="x", max_lines=2, factor=0.95, 
+                 suffix="....", fig=None):
+
+    '''
+    Adjust label to stay within defined length.
+    
+    Parameters
+    ----------
+    ax : Matplotlib axis object
+        Predefined Matplotlib axis.
+        
+    which : {"x", "y"}, default="x"
+        Which axis to change label.
+    
+    max_lines : int, default=2
+        Maximum number of lines.
+        
+    factor : positive float, default=0.95
+        Positive number that is used to scale either width of height 
+        of `ax` to determine the box boundary.
+    
+    suffix : str, default="...."
+        String that is added to the end of last line.
+    
+    fig : Figure, default=None
+        The Figure that `ax` is built in. If None, it defaults to 
+        current figure (plt.gcf()).
+        
+    Returns
+    -------
+    ax : Matplotlib axis object
+        Matplotlib axis.
+        
+    '''
+    if fig is None: fig = plt.gcf()
+    renderer = fig.canvas.get_renderer()
+    Bbox_axis_ = ax.get_window_extent(renderer=renderer)
+    Bbox_label = getattr(ax, f"{which}axis").get_label()
+    Bbox_label = Bbox_label.get_window_extent(renderer=renderer)
+    name = "width" if which=="x" else "height"
+    denom = getattr(Bbox_axis_, name) * factor
+
+    if denom > 0:
+        ratio  = getattr(Bbox_label, name) / denom
+        label_ = list(getattr(ax,f"get_{which}label")())
+        length = int(np.floor(len(label_)/ratio))
+        
+        # Maximum line of texts.
+        n_lines = int(np.ceil(ratio))
+        max_lines = int(min(n_lines, max_lines))
+
+        new_label = []
+        for n in range(max_lines):
+            t = "".join(label_[n*length:(n+1)*length])
+            if (length==len(t)) & (n==max_lines-1) & (n_lines > max_lines):
+                new_label += [t[:-len(suffix)] + suffix]
+            else: new_label += [t]   
+        getattr(ax, f"set_{which}label")("\n".join(new_label))
+    return ax
 
 def cluster_radar(X, y=None, ax=None, q=50, colors=None, labels=None, 
                   fill_kwds=None, plot_kwds=None, labels_format=None,
@@ -626,9 +689,14 @@ def cluster_radar(X, y=None, ax=None, q=50, colors=None, labels=None,
     ax : Matplotlib axis object
 
     '''
+    # Check number of columns.
+    if X.shape[1]<=2:
+        raise ValueError(f"Number of columns must be greater " 
+                         f"than 2. Got {X.shape[1]} instead.")
+    
     # Create matplotlib.axes if ax is None.
     if ax is None: 
-        fig = plt.figure(figsize=(6,6))
+        fig = plt.figure(figsize=(6.5, 6))
         ax  = plt.subplot(polar=True)
     
     # Default value: y
@@ -644,7 +712,7 @@ def cluster_radar(X, y=None, ax=None, q=50, colors=None, labels=None,
                           is None else plot_order)
     
     # Default : labels
-    labels = ([f"Cluster ({n})" for n in plot_order+1] 
+    labels = ([f"Cluster {n}" for n in plot_order+1] 
               if labels is None else labels)
     
     # Default : xticklabels format
@@ -656,8 +724,8 @@ def cluster_radar(X, y=None, ax=None, q=50, colors=None, labels=None,
     # makes `X` stays within 0 and 1, which allows 
     # comparison possible across variables and classes.
     a_min, a_max = np.nanpercentile(X.values, q=[0,100], axis=0)
-    norm_X = (X.values - a_min)/ np.where((a_max-a_min)==0, 
-                                          1, a_max-a_min)
+    norm_X = ((X.values - a_min) / 
+              np.where((a_max-a_min)==0, 1, a_max-a_min))
 
     # Angle of plots.
     angles = [n/float(X.shape[1])*2*np.pi 
@@ -672,11 +740,11 @@ def cluster_radar(X, y=None, ax=None, q=50, colors=None, labels=None,
      
     # Draw one axis per variable and add ticklabels. 
     ax.set_xticks(angles[:-1])
-    xticklabels = [f"{f}\n(" + " ".join((labels_format(v0), 
-                                         labels_format(v1))) + ")"
+    xticklabels = [f"{f}\n(" + ", ".join((labels_format(v0), 
+                                          labels_format(v1))) + ")"
                    for f,v0,v1 in zip(X.columns, a_min, a_max)]  
-    ax.set_xticklabels(xticklabels, color='#3d3d3d', fontsize=11)
-
+    ax.set_xticklabels(xticklabels, color='#3d3d3d', fontsize=12)
+    
     # Set alignment of ticks.
     for n,t in enumerate(ax.get_xticklabels()):
         if (0<angles[n]<np.pi): t._horizontalalignment = 'left'
@@ -689,28 +757,103 @@ def cluster_radar(X, y=None, ax=None, q=50, colors=None, labels=None,
         values+= [values[0]]
         
         # ax.plot
-        kwds = {'lw':2.5,'color':colors[n],"label":labels[n]}
+        kwds = {'linewidth' : 2.5, 
+                'color'     : colors[n], 
+                "label"     : labels[n],
+                "zorder"    : 2*(n + 1) - 1,
+                "solid_capstyle":'round', 
+                "solid_joinstyle":"round"}
         ax.plot(angles, values, **(kwds if plot_kwds is None 
                                    else {**kwds,**plot_kwds}))
 
-        kwds = {'alpha':0.4, 'color':colors[n]}
-        ax.fill(angles, values, **(kwds if plot_kwds is None 
+        kwds = {'alpha':0.3, 'color':colors[n], "zorder":2*(n+1)}
+        ax.fill(angles, values, **(kwds if fill_kwds is None 
                                    else {**kwds,**fill_kwds}))
         
     # Remove lines for radial axis (y)
-    ax.set(yticks=[], yticklabels=[], ylim=(0,1))
-    ax.yaxis.grid(False)
+    ax.set(yticks=[], yticklabels=[])
+    ax.yaxis.grid(False)    
+    y_min, y_max = ax.get_ylim()
+    ax.set_ylim(y_min, y_max)
     
-    for v in np.arange(0.25, 1.25, 0.25):
-        kwds = dict(color='grey', lw=1, ls='--')
-        if v==1: kwds.update(dict(lw=3, ls='-'))
+    # Keyword arguments for annotations.
+    default = dict(textcoords='offset points', fontsize=12, color="grey", 
+                   xytext=(10, 10), va="center", ha="left", zorder=-1, 
+                   bbox=dict(facecolor="w", pad=0.2, 
+                             edgecolor='none', boxstyle="round"),
+                   arrowprops = dict(arrowstyle = "-", color="#cccccc"))
+    
+    # Draw minor grid along with annotations.
+    for v in np.linspace(y_min, y_max, 5)[:-1]:
+        kwds = dict(color="#cccccc", lw=0.8, zorder=-1)
         ax.plot(angles, np.full(len(angles),v), **kwds)
-    ax.xaxis.grid(True, color='grey', lw=1, ls='--')
+        ax.annotate("{:,.2f}".format(v) , (0, v), **default ) 
+        
+    # Draw perimeter.
+    ax.plot(angles, np.full(len(angles), y_max), 
+            color="grey", lw=2, zorder=-1)       
+    ax.xaxis.grid(True, color="#cccccc", lw=0.8, zorder=-1)
 
     # Remove spines
     ax.spines["polar"].set_color("none")
+    ax.set_facecolor('white')
+    ax.patch.set_alpha(0)
+    ax = adjust_legend(ax, len(labels))
     
-    ax.legend(fontsize=11, bbox_to_anchor=(0,0))
     if tight_layout: plt.tight_layout()
         
+    return ax
+
+def bounding_box(obj):
+    
+    '''Private function: Get bounding box'''
+    fig = plt.gcf()
+    renderer = fig.canvas.get_renderer()
+    return (obj.get_window_extent(renderer=renderer)
+            .transformed(plt.gca().transAxes))
+    
+def adjust_legend(ax, n_labels):
+
+    '''Private function: Relocate legend to the bottom'''
+    # Get (x0,y0), and (x1,y1) of all text boxes.
+    ax_bbox = bounding_box(ax)
+    x_, y_ = [], []
+    for t in ax.get_xticklabels():
+        t_bbox = bounding_box(t)
+        x_.append([t_bbox.x0, t_bbox.x1])
+        y_.append([t_bbox.y0, t_bbox.y1])
+
+    # Determine maximum width.
+    x_pos, y_pos = np.r_[x_], np.r_[y_]
+    x_min, x_max = np.percentile(x_pos.ravel(), q=[0,100])
+    max_width = (x_max - x_min)*0.9
+
+    # Find height of textbox in axis coordinates.
+    y0, y1 = y_pos[np.argmin(y_pos[:,0]), :]
+    ax_height = ax_bbox.height
+    t0_height = (y1 - y0)/ax_height
+    new_y0    = (y0-ax_bbox.y0)/ax_height
+
+    # Determine `ncol` that is best fit the legend.
+    best_cols = 1
+    kwds = dict(edgecolor="none" , borderaxespad=0.25, 
+                markerscale =1.00, columnspacing=0.30, 
+                labelspacing=0.70, handletextpad=0.50, 
+                prop={"size":12} , loc='center')
+
+    for c in range(1, n_labels+1):
+        kwds.update({"ncol":c})
+        legend = bounding_box(ax.legend(**kwds)) 
+        gap = np.ceil(n_labels/c) * c - n_labels
+        if (gap < 2) & (legend.width < max_width):
+            best_cols = c
+
+    kwds.update({"ncol": best_cols})
+    # bbox_to_anchor=(1.05, 1)
+    legend = ax.legend(**kwds) 
+    legend_bbox = bounding_box(legend)
+    dy = (legend_bbox.y1 - legend_bbox.y0)/ax_height
+    dy = new_y0 - (0.5 * dy + t0_height)
+    legend.set_bbox_to_anchor([0.5, dy], transform=ax.transAxes)
+    
     return ax
