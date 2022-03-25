@@ -29,6 +29,7 @@ from matplotlib.ticker import(FixedLocator,
                               FuncFormatter)
 from mpl_toolkits.axes_grid1 import Grid
 from itertools import product
+from sklearn.linear_model import LogisticRegression
 
 plt.rcParams.update({'font.family':'sans-serif'})
 plt.rcParams.update({'font.sans-serif':'Hiragino Sans GB'})
@@ -162,7 +163,7 @@ def cluster_pie(y, ax=None, labels=None, colors=None,
 
 def cluster_hist(x, y=None, ax=None, labels=None, colors=None, 
                  fill_kwds=None, plot_kwds=None, tight_layout=True, 
-                 bins="fd", sigma=0.5, whis=1.5, plot_order=None):
+                 bins="fd", sigma=None, whis=1.5, plot_order=None):
     
     '''
     Plot a cluster Kernal Density Estimation (KDE) chart.
@@ -188,6 +189,7 @@ def cluster_hist(x, y=None, ax=None, labels=None, colors=None,
     colors : list of color-hex, default=None
         Number of color-hex must be greater than or equal to number 
         of classes. If None, it uses default colors from Matplotlib.
+        This overrides `fill_kwds`, and `plot_kwds`.
     
     fill_kwds : keywords, default=None
         Keyword arguments to be passed to "ax.fill_between".
@@ -227,56 +229,72 @@ def cluster_hist(x, y=None, ax=None, labels=None, colors=None,
     ax : Matplotlib axis object
     
     '''
+    # ===============================================================
     # Create matplotlib.axes if ax is None.
-    if ax is None: ax = plt.subplots(figsize=(5, 4))[1]
-    
-    # Default value: y
+    if ax is None: ax = plt.subplots(figsize=(7,6))[1]
+    # Default value of y
     y = (np.zeros(len(X)) if y is None else y).astype(int)
-    
-    # Default : colors
+    # Default colors
     unique = np.unique(y)
     colors = ([ax._get_lines.get_next_color() for _ in unique] 
               if colors is None else colors)
-    
-    # Default : plot_order
-    plot_order = np.array(unique if plot_order 
-                          is None else plot_order)
-    
-    # Default : labels
-    labels = ([f"Cluster ({n})" for n in plot_order+1] 
+    # ---------------------------------------------------------------
+    # Default : plot_order and labels
+    plot_order = np.array(unique if plot_order is None else plot_order)
+    labels = ([f"Cluster {n}" for n in plot_order+1] 
               if labels is None else labels)
+    # ---------------------------------------------------------------
+    if fill_kwds is None: fill_kwds = {}
+    if plot_kwds is None: plot_kwds = {}
+    # ===============================================================
     
+    # Plot histogram
+    # ===============================================================
     # Determine bins.
     bins   = np.histogram(x, bins)[1]
     xticks = bins[1:] + np.diff(bins)
     if sigma is None: sigma = np.diff(bins)[0]
-    
+    # ---------------------------------------------------------------
     for n,c in enumerate(plot_order):
         
         # 1-D Gaussian filter (smoothen density curve)
         density = np.histogram(x[y==c], bins, density=True)[0]
         pdf = gaussian_filter1d(density, sigma)
-
+    # ---------------------------------------------------------------
         # Density plot (ax.fill_between)
-        kwds = dict(color=colors[n], label=labels[n], alpha=0.3)
-        if fill_kwds is not None: kwds.update(fill_kwds)
+        kwds = {**dict(label=labels[n], alpha=0.3), **fill_kwds}
+        kwds.update(dict(color=colors[n]))
         ax.fill_between(xticks, pdf, **kwds)
-        
+    # ---------------------------------------------------------------    
         # Density line (ax.plot)
-        kwds = dict(color=colors[n], lw=2.5)
-        ax.plot(xticks, pdf, **({**kwds, **plot_kwds} 
-                                if plot_kwds is not None else kwds))
-    if len(plot_order)>1: ax.legend(loc=0, fontsize=11)
-    ax.set_ylim(*np.array(ax.get_ylim())*[[1,1/0.85]])
+        kwds = {**dict(lw=2.5), **plot_kwds}
+        ax.plot(xticks, pdf, **{**kwds,**dict(color=colors[n])})
+    # ===============================================================    
+
+    # Set other attributes.
+    # ===============================================================
+    # Set limits of coordinates.
+    ax.set_ylim(*np.array(ax.get_ylim())*[[1,1/0.8]])
     ax.set_xlim(__IQR__(x, whis, *ax.get_xlim()))
+    ax.xaxis.set_major_locator(mpl.ticker.MaxNLocator(6))
+    ax.yaxis.set_major_locator(mpl.ticker.MaxNLocator(6))
+    ax.tick_params(axis='both', labelsize=12)
+    # ---------------------------------------------------------------
+    if len(plot_order)>1: 
+        ax.legend(loc=0, edgecolor="grey", ncol=1, 
+                  borderaxespad=0.1, markerscale=1, 
+                  columnspacing=0.2, labelspacing=0.3, 
+                  handletextpad=0.2, prop=dict(size=12))
     if tight_layout: plt.tight_layout()
+    # ===============================================================
+  
     return ax
 
-def cluster_scatter(x1, x2, y=None, ax=None, labels=None, 
-                    colors=None, scatter_kwds=None, 
-                    tight_layout=True, whis=1.5, 
-                    frac=1, random_state=0,
-                    use_kde=False, cmap=None, plot_order=None):
+def cluster_scatter(x1, x2, y=None, ax=None, labels=None, colors=None, 
+                    scatter_kwds=None, tight_layout=True, whis=1.5, 
+                    frac=1, random_state=0, use_kde=False, cmap=None, 
+                    plot_order=None, decision=False, n_grids=(500,500), 
+                    estimator=None, match_labels=False):
     
     '''
     Plot a cluster scatter chart.
@@ -295,14 +313,15 @@ def cluster_scatter(x1, x2, y=None, ax=None, labels=None,
     ax : Matplotlib axis object, default=None
         Predefined Matplotlib axis. If None, ax is created with 
         default figsize.
-
+    
     labels : list, default: None
         A sequence of strings providing the labels for each class. If 
-        None, 'Cluster {n+1}' is assigned, where n is the class in y.
+        None, 'Cluster {n+1}' is assigned, where n is the class in `y`.
 
     colors : list of color-hex, default=None
         Number of color-hex must be greater than or equal to number 
         of classes. If None, it uses default colors from Matplotlib.
+        This overrides `scatter_kwds`.
     
     scatter_kwds : keywords, default=None
         Keyword arguments to be passed to "ax.scatter".
@@ -319,27 +338,48 @@ def cluster_scatter(x1, x2, y=None, ax=None, labels=None,
     
     frac : float, default=1
         Fraction of items to be plotted.
-        
+         
     random_state : int, default=0
-        Seed for random number generator to randomize samples to be 
-        plotted.
-    
+        Controls the randomness of sampling of instances to be plotted.
+        
     use_kde : bool, default=False
         If True, a kernel-density estimate using Gaussian kernels is 
         used, otherwise scatter plots [1].
     
     cmap : str or Colormap, default=None
         A Colormap instance e.g. cm.get_cmap('Reds',20) or registered 
-        colormap name. This is relevant when use_kde is True [2]. If 
-        None, it defaults to "Blues".
+        colormap name. This is relevant when `use_kde` is True [2]. If 
+        None, it defaults to "Blues". This overrides "ax.scatter".
         
     plot_order : list of int, default=None
         List of class order to be plotted.
+        
+    decision : bool, default=False
+        If True, decision boundaries of all classes in `y` are drawn 
+        based on `x1` and `x2` (pairwise), and settings of `estimator`. 
+
+    n_grids : (int,int), default=(500,500)
+        Number of grids on x and y axes. This is relevant when 
+        `decision` is True.
     
+    estimator : estimator object, default=None
+        Create decision boundary. This is assumed to implement the 
+        scikit-learn estimator interface i.e. self.predict(X) to 
+        predict class for X. If None, it uses scikit-learn
+        "LogisticRegression" with following parameters i.e. 
+        "class_weight"="balanced", and "penalty"="none".
+    
+    match_labels : bool, default=False
+        If True, it performs a label matching. This is recommended 
+        for unsupervised `estimator`, where labels are assigned based 
+        on randomness (`random_state`). The matching uses majority
+        criterion and will go down the priority list until all classes
+        are uniquely matched. This is relevant when `decision` is True.
+        
     References
     ----------
-    .. [1] https://docs.scipy.org/doc/scipy/reference/generated/scipy.
-           stats.gaussian_kde.html
+    .. [1] https://docs.scipy.org/doc/scipy/reference/generated/
+           scipy.stats.gaussian_kde.html
     .. [2] https://matplotlib.org/stable/tutorials/colors/colormaps.html
     
     Returns
@@ -347,68 +387,108 @@ def cluster_scatter(x1, x2, y=None, ax=None, labels=None,
     ax : Matplotlib axis object
     
     '''
+    # ===============================================================
     # Create matplotlib.axes if ax is None.
-    if ax is None: ax = plt.subplots(figsize=(5, 4))[1]
-    
-    # Default value: y
+    if ax is None: ax = plt.subplots(figsize=(7,6))[1]
+    # ---------------------------------------------------------------
+    # Default value for `y` (single class)
     y = (np.zeros(len(x1)) if y is None else y).astype(int)
-    
-    # Default : colors
+    # ---------------------------------------------------------------
+    # Default colors
     unique = np.unique(y)
-    colors = ([ax._get_lines.get_next_color() for _ in unique] 
-              if colors is None else colors)
-    
-    # Default : plot_order
-    plot_order = np.array(unique if plot_order 
-                          is None else plot_order)
-    
+    colors = np.r_[[ax._get_lines.get_next_color() for _ in unique] 
+                   if colors is None else colors]
+    # ---------------------------------------------------------------
+    # Default `scatter_kwds`
+    if scatter_kwds is None: scatter_kwds = {}
+    # ---------------------------------------------------------------
+    # Default `plot_order`
+    plot_order = np.r_[unique if plot_order is None else plot_order]
+    # ---------------------------------------------------------------
     # Default : labels
-    labels = ([f"Cluster ({n})" for n in plot_order+1] 
-              if labels is None else labels)
- 
-    # Keep x1, x1, and y given plot_order
-    plot_index = np.isin(y, plot_order)
-    x1 = np.array(x1)[plot_index]
-    x2 = np.array(x2)[plot_index]
-    y  = np.array(y)[plot_index]
+    labels = np.r_[[f"Cluster {n}" for n in plot_order + 1] 
+                   if labels is None else labels]
+    # ---------------------------------------------------------------
+    indices = np.arange(len(x1))
+    # Keep x1, x2, and y given plot_order
+    indices = indices[np.isin(y, plot_order)]
+    # Randomize x1, x2, and y.
+    indices = __RandomIndices__(indices, frac, random_state)
+    y  = np.array(y).ravel()[indices]
+    x1 = np.array(x1).ravel()[indices]
+    x2 = np.array(x2).ravel()[indices]
+    # ===============================================================
     
-    # Randomize x1, x2, and y (if not None)
-    indices= __indices__(len(x1), frac, random_state)
-    Select = lambda x, index: np.array(x).ravel()[indices]
-    x1, x2 = Select(x1, indices), Select(x2, indices), 
-    y = Select(y, indices)
-
+    # Plot
+    # ===============================================================
     # Compute kernel-density estimate using Gaussian kernels
     if use_kde==True:
         
+        # Colormap
         if cmap is None: cmap = 'Blues' 
-        if isinstance(cmap, str): 
-            cmap = cm.get_cmap(cmap, 50)
-        
-        try:
-            data = np.vstack((x1,x2))
-            values = gaussian_kde(data).evaluate(data)
+        if isinstance(cmap, str): cmap = cm.get_cmap(cmap, 50)
+        kwds = dict(marker='o', alpha=0.5, s=10)
+        data = np.vstack((x1, x2))
+        try: values = gaussian_kde(data).evaluate(data)
         except: values = gaussian_kde(x1).evaluate(x1)
-            
-        kwds = dict(c=values, cmap=cmap, marker='s', alpha=0.8, s=10)
-        ax.scatter(x1, x2, **({**kwds, **scatter_kwds} if scatter_kwds 
-                              is not None else kwds))
+        kwds.update(scatter_kwds)
+        ax.scatter(x1, x2, **{**kwds,**dict(c=values, cmap=cmap)})
+    # ---------------------------------------------------------------
     # Scatter plot
     elif use_kde==False:
         
-        kwds = dict(fc="none", marker='s', alpha=0.8, s=10)
+        # Default settings for "ax.scatter".
+        kwds = dict(marker='o', alpha=0.5, s=10)
+        kwds.update(scatter_kwds)
         for n,c in enumerate(plot_order):
-            kwds.update(dict(ec=colors[n], label=labels[n]))
-            ax.scatter(x1[(y==c)], x2[(y==c)], 
-                       **({**kwds, **scatter_kwds} if scatter_kwds 
-                          is not None else kwds))
+            kwds.update(dict(facecolor=colors[n], label=labels[n]))
+            ax.scatter(x1[(y==c)], x2[(y==c)], **kwds)
+    # ---------------------------------------------------------------
+        if decision & (len(plot_order)>1):
+        
+            # Create the grid for background colors
+            m1 = np.linspace(min(x1)-1, max(x1)+1, n_grids[0]+1)
+            m2 = np.linspace(min(x2)-1, max(x2)+1, n_grids[1]+1)
+            m1, m2 = np.meshgrid(m1, m2)
+            m12 = np.c_[m1.ravel(), m2.ravel()]
+
+            # Use `LogisticRegression` as a default `estimator`.
+            if estimator is None:
+                kwargs = {"class_weight": "balanced", 
+                          "penalty": "none"}
+                estimator = LogisticRegression(**kwargs)
+           
+            # plot decision boundaries (contour)
+            C = np.c_[x1.ravel(), x2.ravel()]
+            estimator.fit(C, y)
+            
+            if match_labels:
+                args = (y, estimator.predict(C), 
+                        estimator.predict(m12))
+                Z = label_matching(*args).reshape(m1.shape)
+            else: Z = estimator.predict(m12).reshape(m1.shape)
+            
+            # ax.contourf(m1, m2, Z, cmap)
+            ax.pcolormesh(m1, m2,Z, shading="auto", zorder=-1,
+                           cmap=create_cmap(colors[::-1]))
+    # ===============================================================       
     
+    # Set other attributes.
+    # ===============================================================
     # Set limits of coordinates.
     ax.set_xlim(__IQR__(x1, whis, *ax.get_xlim()))
     ax.set_ylim(__IQR__(x2, whis, *ax.get_ylim()))
+    ax.xaxis.set_major_locator(mpl.ticker.MaxNLocator(6))
+    ax.yaxis.set_major_locator(mpl.ticker.MaxNLocator(6))
+    ax.tick_params(axis='both', labelsize=12)
+    # ---------------------------------------------------------------
     if (not use_kde) & (len(plot_order)>1): 
-        ax.legend(loc=0, fontsize=11)
+        ax.legend(loc=0, edgecolor="grey", ncol=1, 
+                  borderaxespad=0.1, markerscale=1, 
+                  columnspacing=0.2, labelspacing=0.3, 
+                  handletextpad=0.2, prop=dict(size=12))
     if tight_layout: plt.tight_layout()
+    # ===============================================================
         
     return ax
 
@@ -419,18 +499,43 @@ def __IQR__(a, whis, a_min, a_max):
     if Q1==Q3: return (a_min, a_max)
     else: return (np.fmax(Q1-whis*(Q3-Q1),a_min), 
                   np.fmin(Q3+whis*(Q3-Q1),a_max))
-    
-def __indices__(N, frac=1, random_state=0):
+
+def __RandomIndices__(indices, frac=1, random_state=0):
     
     '''Private Function: Random indices'''
     # Select samples
-    np.random.seed(random_state)
-    indices = np.arange(0,N)
-    if frac<1:
-        kwds = dict(size=np.fmax(int(frac*N), 10), replace=False)
-        select = np.random.choice(indices, **kwds)
+    rng = np.random.RandomState(random_state)
+    kwds = dict(size=np.fmax(int(frac*len(indices)),10), replace=False)
+    if frac<1: select = rng.choice(indices, **kwds)
     else: select = indices.copy()
     return np.isin(indices, select)
+
+def label_matching(y_true, y_pred, y_trans):
+    
+    '''Private Function: Matching labels'''
+    pred_labels = []
+    true_labels = np.unique(y_true)
+    for k in true_labels:
+        unq, cnt = np.unique(y_pred[y_true==k], 
+                             return_counts=True)
+        
+        # Determine label with maximum count.
+        n_labels = np.r_[[0]*len(true_labels)]
+        n_labels[unq] = cnt
+        
+        # Sort label indices from max to min.
+        labels = np.argsort(n_labels)[::-1] 
+        # Select label, whose count is the maximum and 
+        # not in `pred_labels`
+        index  = np.isin(labels, pred_labels)
+        pred_labels += [labels[~index][0]]
+        
+    condlist, choicelist = [], []
+    for a,b in zip(true_labels, pred_labels):
+        condlist   += [y_trans==b]
+        choicelist += [a]
+        
+    return np.select(condlist, choicelist)
 
 def cluster_matrix(X, y=None, colors=None, whis=1.5, plot_order=None, 
                    off_diagonal="scatter", hist_kwds=None, 
@@ -502,73 +607,78 @@ def cluster_matrix(X, y=None, colors=None, whis=1.5, plot_order=None,
         A matrix of plots.
 
     '''
+    # ===============================================================
     # A grid of Axes (mpl_toolkits.axes_grid1).
     n_rows, n_cols = (X.shape[1],)*2
     figsize = (n_rows*1.3, n_cols*1.3) if figsize is None else figsize
-    fig = plt.figure(figsize=figsize)
+    fig  = plt.figure(figsize=figsize)
     grid = np.array(Grid(fig, rect=111, nrows_ncols=(n_rows,n_cols), 
                          share_x=False, share_y=False, axes_pad=0))
-    
+    # ---------------------------------------------------------------
     # Fraction, Pairs of variables, and axes.
     frac, columns = np.fmin(n_limit/len(X),1), X.columns
     pairs = zip(list(product(columns, columns)), grid, 
                 product(range(n_rows), range(n_cols)))
     y = (np.zeros(len(X)) if y is None else y).astype(int)
-
+    # ===============================================================
+    
+    # Plot scatter.
+    # ===============================================================
     for (var1,var2), ax, (r,c) in pairs:
-        
         notna = (X[[var1,var2]].notna().sum(axis=1)==2).values
-        
         if notna.sum()>0:
-            
             x1 = X.loc[notna, var1].copy()
             x2 = X.loc[notna, var2].copy()
             y0 = y[notna].copy()
-            
+    # ---------------------------------------------------------------        
             # Diagonal plot
             if var1==var2:
-                
-                default   = {"plot_kwds": {"lw":1}}
+                default   = {"plot_kwds": {"lw": 1}}
                 hist_kwds = (default if hist_kwds is None else 
                              {**default, **hist_kwds})
                 kwds = dict(y=y, ax=ax, colors=colors, whis=whis, 
                             plot_order=plot_order, tight_layout=False)
                 ax = cluster_hist(x1, **{**hist_kwds, **kwds})
-
+    # ---------------------------------------------------------------
             # Off-diagonal plot
             elif var1!=var2: 
-                
-                default = {"scatter_kwds": dict(s=5, alpha=0.5)}
+                default = {"scatter_kwds": dict(s=10, alpha=0.5)}
                 scatter_kwds = (default if scatter_kwds is None 
                                 else {**default, **scatter_kwds})
-                    
+    # ---------------------------------------------------------------               
                 use_kde = (True if off_diagonal=="kde" else False)
                 if (off_diagonal=="both") & (c>r): use_kde = False
                 elif (off_diagonal=="both") & (c<r): use_kde = True   
-                    
+    # ---------------------------------------------------------------                
                 kwds = dict(y=y0, ax=ax, frac=frac, whis=whis,
                             colors=colors, plot_order=plot_order, 
                             tight_layout=False, use_kde=use_kde)    
-                ax = cluster_scatter(x2, x1, **{**scatter_kwds, **kwds})
-
+                ax = cluster_scatter(x2, x1, **{**scatter_kwds, 
+                                                **kwds})
+    # ---------------------------------------------------------------
                 if show_corr:
                     corr, pvalue = stats.pearsonr(x1, x2)
-                    ax.text(0.95, 0.05, ('%.2f' % corr), size=11, 
-                            transform=ax.transAxes, ha="right", va="bottom",
-                            bbox=dict(boxstyle='round' , alpha=1, pad=0.2,
-                                      facecolor='white', edgecolor='none'))
-                    
-            if ax.get_legend() is not None: ax.legend().set_visible(False)      
+                    bbox = dict(boxstyle='round' , alpha=1, pad=0.2,
+                                facecolor='white', edgecolor='grey')
+                    ax.text(0.95, 0.05, ('{:.2f}'.format(corr)), 
+                            size=11, transform=ax.transAxes, 
+                            ha="right", va="bottom", bbox=bbox)
+    # ---------------------------------------------------------------                
+            if ax.get_legend() is not None: 
+                ax.legend().set_visible(False)      
             ax.set(xticks=[], yticks=[])  
             if c==0: ax.set_ylabel(var1, fontsize=12)
-            if r==n_rows-1: ax.set_xlabel(var2, fontsize=12)        
+            if r==n_rows-1: ax.set_xlabel(var2, fontsize=12)   
+    # ===============================================================
     
     # Adjust labels both x and y axis.
+    # ===============================================================
     plt.tight_layout(pad=0)
     if label_kwds is None: 
         label_kwds = {"max_lines":2, "factor":0.95, "suffix":"...."}
     for ax in grid[0::n_cols]: adjust_label(ax, "y", **label_kwds)
-    for ax in grid[-n_cols: ]: adjust_label(ax, "x", **label_kwds)   
+    for ax in grid[-n_cols: ]: adjust_label(ax, "x", **label_kwds) 
+    # ===============================================================
 
     return grid.reshape((n_rows, n_cols))
 
